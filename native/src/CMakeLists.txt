@@ -59,9 +59,9 @@ include(${CPM_DOWNLOAD_LOCATION})
 # pull cuDF sources, to use jni_utils.hpp
 # cmake options should be added here for CI build.
 CPMAddPackage(NAME cudf
-        VERSION         "22.04.00"
+        VERSION         "22.10.00"
         GIT_REPOSITORY  https://github.com/rapidsai/cudf.git
-        GIT_TAG         branch-22.04
+        GIT_TAG         branch-22.10
 )
 
 add_library(rapidsml_jni SHARED rapidsml_jni.cpp
