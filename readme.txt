@@ -1,3 +1,3 @@
 export RAFT_PATH=raft
 conda activate cuml_dev
-mvn clean package
+mvn -DskipTests -Drat.skip=true -Dmaven.javadoc.skip=true -Dskip -Dmaven.scalastyle.skip=true  clean install
