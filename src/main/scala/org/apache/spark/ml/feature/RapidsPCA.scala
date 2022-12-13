@@ -18,18 +18,20 @@ package org.apache.spark.ml.feature
 
 import com.nvidia.spark.RapidsUDF
 import org.apache.hadoop.fs.Path
+
 import org.apache.spark.ml._
 import org.apache.spark.ml.linalg._
 import org.apache.spark.ml.linalg.distributed.RapidsRowMatrix
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
 import org.apache.spark.sql._
-import org.apache.spark.sql.functions.{col}
+import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.TaskContext
 import ai.rapids.cudf.ColumnVector
-
 import scala.collection.mutable
+
+import org.apache.spark.ml.functions.vector_to_array
 
 trait RapidsPCAParams extends PCAParams {
   /**
@@ -50,7 +52,7 @@ trait RapidsPCAParams extends PCAParams {
  * principal components.
  */
 class RapidsPCA(override val uid: String)
-  extends Estimator[RapidsPCAModel] with RapidsPCAParams with DefaultParamsWritable {
+  extends Estimator[PCAModel] with RapidsPCAParams with DefaultParamsWritable {
 
   def this() = this(Identifiable.randomUID("pca"))
 
@@ -69,13 +71,19 @@ class RapidsPCA(override val uid: String)
   /**
    * Computes a [[RapidsPCAModel]] that contains the principal components of the input vectors.
    */
-  override def fit(dataset: Dataset[_]): RapidsPCAModel = {
-    val input = dataset.select($(inputCol))
+  override def fit(dataset: Dataset[_]): PCAModel = {
+    var input = dataset.select($(inputCol))
+    input = input.schema.fields(0).dataType match {
+      case _: VectorUDT => input.withColumn("array_feature", vector_to_array(col($(inputCol)))).select("array_feature")
+      case _ => input
+    }
+    input.show()
     val numCols = input.first().get(0).asInstanceOf[mutable.WrappedArray[Any]].length
 
     val mat = new RapidsRowMatrix(input, $(meanCentering), numCols)
     val (pc, explainedVariance) = mat.computePrincipalComponentsAndExplainedVariance(getK)
-    val model = new RapidsPCAModel(uid, pc, explainedVariance)
+//    val model = new RapidsPCAModel(uid, pc, explainedVariance)
+    val model = new PCAModel(uid, pc, explainedVariance)
     copyValues(model.setParent(this))
   }
 
