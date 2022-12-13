@@ -1,0 +1,5 @@
+export RAFT_PATH=/home/bobwang/work.d/ml/rapids-ml-scala/raft
+
+conda activate cudf-22.04
+
+mvn -Dmaven.test.skip=true -DskipTests  clean package
