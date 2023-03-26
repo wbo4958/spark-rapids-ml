@@ -3,6 +3,32 @@
 from python.tests.sparksession import CleanSparkSession
 
 
+def test_pca_model():
+    with CleanSparkSession() as spark:
+        from pyspark.ml.linalg import Vectors
+        data = [(Vectors.sparse(5, [(1, 1.0), (3, 7.0)]),),
+                (Vectors.dense([2.0, 0.0, 3.0, 4.0, 5.0]),),
+                (Vectors.dense([4.0, 0.0, 0.0, 6.0, 7.0]),)]
+        df = spark.createDataFrame(data, ["features"])
+        from spark_rapids_ml.feature import PCA
+        pca = PCA(k=2, inputCol="features")
+        pca.setOutputCol("pca_features")
+        model = pca.fit(df)
+
+        from pyspark.ml.feature import PCAModel
+        sc = spark.sparkContext
+
+        from pyspark.ml.common import _py2java
+        _java_pc = _py2java(sc, model.pc)
+        _java_explainedVariance = _py2java(sc, model.explainedVariance)
+        java_model = sc._jvm.org.apache.spark.ml.feature.PCAModel("xxx", _java_pc, _java_explainedVariance)
+
+        final_model = PCAModel(java_model)
+        final_model.setInputCol("features")
+        final_model.set(final_model.k, 2)
+        final_model.transform(df).show()
+
+
 def test_ml_kmeans_model():
     from pyspark.mllib.clustering import KMeansModel as MllibKMeansModel
     from pyspark.mllib.common import _py2java
