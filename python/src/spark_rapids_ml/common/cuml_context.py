@@ -22,8 +22,8 @@ from typing import TYPE_CHECKING, Any, List, Optional, Tuple
 
 import psutil
 
-# need this first to load shared ucx shared libraries from ucx-py instead of raft-dask
 if TYPE_CHECKING:
+    # need this first to load shared ucx shared libraries from ucx-py instead of raft-dask
     from ucp import Endpoint
     from pylibraft.common import Handle  # isort: split
     from raft_dask.common import UCX
@@ -48,6 +48,8 @@ class CumlContext:
         2. do all gather for all the workers to get the nccl unique uid.
         3. if require_ucx is true, initialize ucx and inject ucx together with nccl into a handle
         """
+        # need this first to load shared ucx shared libraries from ucx-py instead of raft-dask
+        from ucp import Endpoint
         from pylibraft.common import Handle
         from raft_dask.common import UCX
         from raft_dask.common.nccl import nccl
@@ -108,7 +110,7 @@ class CumlContext:
         if not self.enable:
             return self
 
-        from raft_dask.common.nccl import nccl
+        # from raft_dask.common.nccl import nccl
 
         # initialize nccl and inject it to the handle. A GPU must be assigned exclusively before init() is called
         self._nccl_comm = nccl()
