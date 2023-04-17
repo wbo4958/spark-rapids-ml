@@ -147,12 +147,12 @@ class _CumlClass(object):
         Inspect the __init__ function of associated _cuml_cls() to return a dictionary of
         parameter names and their default values.
         """
-        params = {}
-        for cls_type in cls._cuml_cls():
-            params.update(
-                _get_default_params_from_func(cls_type, cls._param_excludes())
-            )
-        return params
+        # params = {}
+        # for cls_type in cls._cuml_cls():
+        #     params.update(
+        #         _get_default_params_from_func(cls_type, cls._param_excludes())
+        #     )
+        return {'n_components': None, 'svd_solver': 'auto', 'verbose': False, 'whiten': False}
 
 
 class _CumlParams(_CumlClass, Params):
