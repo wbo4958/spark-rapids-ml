@@ -784,10 +784,12 @@ class _CumlModelWithColumns(_CumlModel):
         @pandas_udf(self._out_schema(dataset.schema))  # type: ignore
         def predict_udf(iterator: Iterator[pd.DataFrame]) -> Iterator[pd.Series]:
             from pyspark import TaskContext
-
+            print("in predict_udf")
             context = TaskContext.get()
             _CumlCommon.set_gpu_device(context, is_local, True)
+            print("in predict_udf 0")
             cuml_object = construct_cuml_object_func()
+            print("in predict_udf 1")
             for pdf in iterator:
                 if not input_is_multi_cols:
                     data = np.array(list(pdf[select_cols[0]]), order=array_order)

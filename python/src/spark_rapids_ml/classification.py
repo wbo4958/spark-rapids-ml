@@ -228,6 +228,7 @@ class RandomForestClassificationModel(
         _construct_rf, _ = super()._get_cuml_transform_func(dataset)
 
         def _predict(rf: CumlT, pdf: Union["cudf.DataFrame", np.ndarray]) -> pd.Series:
+            print("in rfc _predict 1")
             data = {}
             rf.update_labels = False
             data[pred.prediction] = rf.predict(pdf)
