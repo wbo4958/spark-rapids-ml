@@ -769,7 +769,9 @@ class _CumlModelWithColumns(_CumlModel):
 
     def _transform(self, dataset: DataFrame) -> DataFrame:
         """This version of transform is directly adding extra columns to the dataset"""
+        print("bobby in rfc _transform 4")
         dataset, select_cols, input_is_multi_cols = self._pre_process_data(dataset)
+        print("bobby in rfc _transform 5")
 
         is_local = _is_local(_get_spark_session().sparkContext)
 
@@ -778,18 +780,20 @@ class _CumlModelWithColumns(_CumlModel):
             construct_cuml_object_func,
             cuml_transform_func,
         ) = self._get_cuml_transform_func(dataset)
+        print("bobby in rfc _transform 5")
 
         array_order = self._transform_array_order()
 
         @pandas_udf(self._out_schema(dataset.schema))  # type: ignore
         def predict_udf(iterator: Iterator[pd.DataFrame]) -> Iterator[pd.Series]:
+            print("bobby in predict_udf -1")
             from pyspark import TaskContext
-            print("in predict_udf")
+            print("bobby in predict_udf")
             context = TaskContext.get()
             _CumlCommon.set_gpu_device(context, is_local, True)
-            print("in predict_udf 0")
+            print("bobby in predict_udf 0")
             cuml_object = construct_cuml_object_func()
-            print("in predict_udf 1")
+            print("bobby in predict_udf 1")
             for pdf in iterator:
                 if not input_is_multi_cols:
                     data = np.array(list(pdf[select_cols[0]]), order=array_order)

@@ -472,26 +472,27 @@ class _RandomForestModel(
         is_classification = self._is_classification()
 
         def _construct_rf() -> CumlT:
-            print("in rfc _construct_rf 1")
+            print("bobby in rfc _construct_rf 1")
 
             model = pickle.loads(base64.b64decode(treelite_model))
-            print("in rfc _construct_rf 2")
+            print("bobby in rfc _construct_rf 2")
 
             if is_classification:
                 from cuml import RandomForestClassifier as cuRf
             else:
                 from cuml import RandomForestRegressor as cuRf
 
-            print("in rfc _construct_rf 3")
+            print("bobby in rfc _construct_rf 3")
 
             rf = cuRf()
-            print("in rfc _construct_rf 4")
+            print("bobby in rfc _construct_rf 4")
 
             rf._concatenate_treelite_handle([rf._tl_handle_from_bytes(model)])
 
             return rf
 
         def _predict(rf: CumlT, pdf: Union["cudf.DataFrame", np.ndarray]) -> pd.Series:
+            print("bobby in rfc _predict 4")
             rf.update_labels = False
             ret = rf.predict(pdf)
             return pd.Series(ret)
