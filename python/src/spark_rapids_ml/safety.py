@@ -220,9 +220,9 @@ def safe_patch(
             call_original = update_wrapper_extended(call_original, original)
 
             if patch_is_class:
-                patch_function.call(call_original, *args, **kwargs)
+                return patch_function.call(call_original, *args, **kwargs)
             else:
-                patch_function(call_original, *args, **kwargs)
+                return patch_function(call_original, *args, **kwargs)
 
 
         except Exception as e:
@@ -233,13 +233,13 @@ def safe_patch(
             if failed_during_original:
                 raise
 
-        try:
-            if original_has_been_called:
-                return original_result
-            else:
-                return call_original_fn_with_event_logging(original, args, kwargs)
-        finally:
-            pass
+        # try:
+        #     if original_has_been_called:
+        #         return original_result
+        #     else:
+        #         return call_original_fn_with_event_logging(original, args, kwargs)
+        # finally:
+        #     pass
 
     if is_property_method:
         # Create a patched function (also property decorated)
