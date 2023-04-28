@@ -14,3 +14,8 @@
 # limitations under the License.
 #
 __version__ = "23.4.0"
+
+
+from .acceleration import gpu_acceleration
+
+__all__ = ["gpu_acceleration"]

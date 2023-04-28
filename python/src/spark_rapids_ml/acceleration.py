@@ -34,4 +34,4 @@ def gpu_acceleration(
 
     """
 
-    register_post_import_hook(spark.gpu_acceleration, overwrite=True)
+    register_post_import_hook(spark.gpu_acceleration, "pyspark", overwrite=True)
