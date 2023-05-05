@@ -44,6 +44,7 @@ from spark_rapids_ml.core import (
     _CumlEstimator,
     _CumlModel,
     param_alias,
+    transform_category,
 )
 from spark_rapids_ml.params import _CumlClass, _CumlParams
 from spark_rapids_ml.utils import PartitionDescriptor, _get_default_params_from_func
@@ -265,10 +266,19 @@ class SparkRapidsMLDummyModel(
         return self._set(outputCols=value)
 
     def _get_cuml_transform_func(
-        self, dataset: DataFrame
+        self, dataset: DataFrame, category: str = transform_category.transform
     ) -> Tuple[
         Callable[..., CumlT],
         Callable[[CumlT, Union["cudf.DataFrame", np.ndarray]], pd.DataFrame],
+        Optional[
+            Callable[
+                [
+                    Union["cudf.DataFrame", np.ndarray],
+                    Union["cudf.DataFrame", np.ndarray],
+                ],
+                pd.DataFrame,
+            ]
+        ],
     ]:
         model_attribute_a = self.model_attribute_a
 
@@ -294,7 +304,7 @@ class SparkRapidsMLDummyModel(
                 # TODO: implement when adding single column test
                 raise NotImplementedError()
 
-        return _construct_dummy, _dummy_transform
+        return _construct_dummy, _dummy_transform, None
 
     def _out_schema(self, input_schema: StructType) -> Union[StructType, str]:
         return input_schema

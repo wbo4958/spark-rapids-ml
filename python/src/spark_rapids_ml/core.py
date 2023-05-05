@@ -105,6 +105,12 @@ ParamAlias = namedtuple(
 )
 param_alias = ParamAlias("cuml_init", "handle", "num_cols", "part_sizes", "loop")
 
+# Global parameter used by core and subclasses.
+TransformCategory = namedtuple(
+    "TransformCategory", ("transform", "transform_evaluation")
+)
+transform_category = TransformCategory("transform", "transform_evaluation")
+
 
 class _CumlEstimatorWriter(MLWriter):
     """
@@ -610,10 +616,19 @@ class _CumlModel(Model, _CumlParams, _CumlCommon):
 
     @abstractmethod
     def _get_cuml_transform_func(
-        self, dataset: DataFrame
+        self, dataset: DataFrame, category: str = transform_category.transform
     ) -> Tuple[
         Callable[..., CumlT],
         Callable[[CumlT, Union["cudf.DataFrame", np.ndarray]], pd.DataFrame],
+        Optional[
+            Callable[
+                [
+                    Union["cudf.DataFrame", np.ndarray],
+                    Union["cudf.DataFrame", np.ndarray],
+                ],
+                pd.DataFrame,
+            ]
+        ],
     ]:
         """
         Subclass must implement this function to return two functions,
@@ -628,9 +643,12 @@ class _CumlModel(Model, _CumlParams, _CumlCommon):
                 ...
             def _cuml_transform(cuml_obj: CumlT, df: Union[pd.DataFrame, np.ndarray]) ->pd.DataFrame:
                 ...
+            def _evaluate(input_df: Union[pd.DataFrame, np.ndarray], transformed_df: Union[pd.DataFrame, np.ndarray]) -> pd.DataFrame:
+                ...
             ...
 
-            return _construct_cuml_object, _cuml_transform
+            # please note that, if there is no evaluation requirement, just set None.
+            return _construct_cuml_object, _cuml_transform, _evaluate
 
         _get_cuml_transform_func itself runs on the driver side, while the returned
         _construct_cuml_object and _cuml_transform will run on the executor side.
@@ -654,7 +672,13 @@ class _CumlModel(Model, _CumlParams, _CumlCommon):
     def _pre_process_data(
         self, dataset: DataFrame
     ) -> Tuple[DataFrame, List[str], bool]:
-        """Pre-handle the dataset before transform."""
+        """Pre-handle the dataset before transform.
+
+        Please note that, this function just transforms the input column if necessary, and
+        it will keep the unused columns.
+
+        return (dataset, list of feature names, bool value to indicate if it is multi-columns input)
+        """
         select_cols = []
         input_is_multi_cols = True
 
@@ -683,6 +707,47 @@ class _CumlModel(Model, _CumlParams, _CumlCommon):
 
         return dataset, select_cols, input_is_multi_cols
 
+    def _transform_evaluate(
+        self, dataset: DataFrame, schema: Union[StructType, str]
+    ) -> DataFrame:
+        dataset, select_cols, input_is_multi_cols = self._pre_process_data(dataset)
+
+        is_local = _is_local(_get_spark_session().sparkContext)
+
+        # Get the functions which will be passed into executor to run.
+        (
+            construct_cuml_object_func,
+            cuml_transform_func,
+            evaluate_func,
+        ) = self._get_cuml_transform_func(
+            dataset, transform_category.transform_evaluation
+        )
+
+        array_order = self._transform_array_order()
+
+        def _transform_udf(pdf_iter: Iterator[pd.DataFrame]) -> pd.DataFrame:
+            from pyspark import TaskContext
+
+            context = TaskContext.get()
+
+            _CumlCommon.set_gpu_device(context, is_local, True)
+
+            # Construct the cuml counterpart object
+            cuml_object = construct_cuml_object_func()
+
+            for pdf in pdf_iter:
+                # Transform the dataset
+                if input_is_multi_cols:
+                    data = cuml_transform_func(cuml_object, pdf[select_cols])
+                else:
+                    nparray = np.array(list(pdf[select_cols[0]]), order=array_order)
+                    data = cuml_transform_func(cuml_object, nparray)
+                if evaluate_func is not None:
+                    data = evaluate_func(pdf, data)
+                yield data
+
+        return dataset.mapInPandas(_transform_udf, schema=schema)  # type: ignore
+
     def _transform(self, dataset: DataFrame) -> DataFrame:
         """
         Transforms the input dataset.
@@ -697,39 +762,8 @@ class _CumlModel(Model, _CumlParams, _CumlCommon):
         :py:class:`pyspark.sql.DataFrame`
             transformed dataset
         """
-        dataset, select_cols, input_is_multi_cols = self._pre_process_data(dataset)
-
-        is_local = _is_local(_get_spark_session().sparkContext)
-
-        # Get the functions which will be passed into executor to run.
-        (
-            construct_cuml_object_func,
-            cuml_transform_func,
-        ) = self._get_cuml_transform_func(dataset)
-
-        array_order = self._transform_array_order()
-
-        def _transform_udf(pdf_iter: Iterator[pd.DataFrame]) -> pd.DataFrame:
-            from pyspark import TaskContext
-
-            context = TaskContext.get()
-
-            _CumlCommon.set_gpu_device(context, is_local, True)
-
-            # Construct the cuml counterpart object
-            cuml_object = construct_cuml_object_func()
-
-            # Transform the dataset
-            if input_is_multi_cols:
-                for pdf in pdf_iter:
-                    yield cuml_transform_func(cuml_object, pdf[select_cols])
-            else:
-                for pdf in pdf_iter:
-                    nparray = np.array(list(pdf[select_cols[0]]), order=array_order)
-                    yield cuml_transform_func(cuml_object, nparray)
-
-        return dataset.mapInPandas(
-            _transform_udf, schema=self._out_schema(dataset.schema)  # type: ignore
+        return self._transform_evaluate(
+            dataset, schema=self._out_schema(dataset.schema)
         )
 
     def write(self) -> MLWriter:
@@ -777,6 +811,7 @@ class _CumlModelWithColumns(_CumlModel):
         (
             construct_cuml_object_func,
             cuml_transform_func,
+            _,
         ) = self._get_cuml_transform_func(dataset)
 
         array_order = self._transform_array_order()
@@ -841,8 +876,8 @@ class _CumlModelWithColumns(_CumlModel):
         return schema
 
 
-class _CumlModelSupervised(_CumlModelWithColumns, HasPredictionCol):
-    """Cuml base model for supervised machine learning Eg, RF/LR"""
+class _CumlModelWithPredictionCol(_CumlModelWithColumns, HasPredictionCol):
+    """Cuml base model with prediction col"""
 
     @property  # type: ignore[misc]
     def numFeatures(self) -> int:
