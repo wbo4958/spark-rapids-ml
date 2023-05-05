@@ -60,6 +60,7 @@ from .core import (
     _CumlEstimatorSupervised,
     _CumlModelSupervised,
     param_alias,
+    transform_category,
 )
 from .params import HasFeaturesCols, P, _CumlClass, _CumlParams
 from .utils import (
@@ -464,10 +465,14 @@ class _RandomForestModel(
         return uid, java_trees
 
     def _get_cuml_transform_func(
-        self, dataset: DataFrame
+        self, dataset: DataFrame, category: str = transform_category.transform
     ) -> Tuple[
         Callable[..., CumlT],
         Callable[[CumlT, Union["cudf.DataFrame", np.ndarray]], pd.DataFrame],
+        Callable[
+            [Union["cudf.DataFrame", np.ndarray], Union["cudf.DataFrame", np.ndarray]],
+            pd.DataFrame,
+        ],
     ]:
         treelite_model = self._treelite_model
 
@@ -492,4 +497,4 @@ class _RandomForestModel(
             return pd.Series(ret)
 
         # TBD: figure out why RF algo's warns regardless of what np array order is set
-        return _construct_rf, _predict
+        return _construct_rf, _predict, None

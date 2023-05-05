@@ -63,6 +63,7 @@ from .core import (
     _CumlModel,
     alias,
     param_alias,
+    transform_category,
 )
 from .params import P, _CumlClass, _CumlParams
 from .utils import _concat_and_free
@@ -568,10 +569,14 @@ class NearestNeighborsModel(
         )
 
     def _get_cuml_transform_func(
-        self, dataset: DataFrame
+        self, dataset: DataFrame, category: str = transform_category.transform
     ) -> Tuple[
         Callable[..., CumlT],
         Callable[[CumlT, Union["cudf.DataFrame", np.ndarray]], pd.DataFrame],
+        Callable[
+            [Union["cudf.DataFrame", np.ndarray], Union["cudf.DataFrame", np.ndarray]],
+            pd.DataFrame,
+        ],
     ]:
         raise NotImplementedError(
             "'_CumlModel._get_cuml_transform_func' method is not implemented. Use 'kneighbors' instead."

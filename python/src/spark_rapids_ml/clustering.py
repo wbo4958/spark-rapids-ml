@@ -49,8 +49,9 @@ from .core import (
     CumlInputType,
     CumlT,
     _CumlEstimator,
-    _CumlModelSupervised,
+    _CumlModelWithPredictionCol,
     param_alias,
+    transform_category,
 )
 from .params import HasFeaturesCols, P, _CumlClass, _CumlParams
 from .utils import (
@@ -331,7 +332,7 @@ class KMeans(KMeansClass, _CumlEstimator, _KMeansCumlParams):
         return KMeansModel.from_row(result)
 
 
-class KMeansModel(KMeansClass, _CumlModelSupervised, _KMeansCumlParams):
+class KMeansModel(KMeansClass, _CumlModelWithPredictionCol, _KMeansCumlParams):
     """
     KMeans gpu model for clustering input vectors to learned k centers.
     Refer to the KMeans class for learning the k centers.
@@ -395,10 +396,14 @@ class KMeansModel(KMeansClass, _CumlModelSupervised, _KMeansCumlParams):
         return "C"
 
     def _get_cuml_transform_func(
-        self, dataset: DataFrame
+        self, dataset: DataFrame, category: str = transform_category.transform
     ) -> Tuple[
         Callable[..., CumlT],
         Callable[[CumlT, Union["cudf.DataFrame", np.ndarray]], pd.DataFrame],
+        Callable[
+            [Union["cudf.DataFrame", np.ndarray], Union["cudf.DataFrame", np.ndarray]],
+            pd.DataFrame,
+        ],
     ]:
         cuml_alg_params = self.cuml_params.copy()
 
@@ -426,4 +431,4 @@ class KMeansModel(KMeansClass, _CumlModelSupervised, _KMeansCumlParams):
             res = list(kmeans.predict(df, normalize_weights=False).to_numpy())
             return pd.Series(res)
 
-        return _construct_kmeans, _transform_internal
+        return _construct_kmeans, _transform_internal, None

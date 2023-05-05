@@ -44,6 +44,7 @@ from .core import (
     _CumlEstimator,
     _CumlModelWithColumns,
     param_alias,
+    transform_category,
 )
 from .params import P, _CumlClass, _CumlParams
 from .utils import (
@@ -337,10 +338,14 @@ class PCAModel(PCAClass, _CumlModelWithColumns, _PCACumlParams):
         return self._pca_ml_model
 
     def _get_cuml_transform_func(
-        self, dataset: DataFrame
+        self, dataset: DataFrame, category: str = transform_category.transform
     ) -> Tuple[
         Callable[..., CumlT],
         Callable[[CumlT, Union["cudf.DataFrame", np.ndarray]], pd.DataFrame],
+        Callable[
+            [Union["cudf.DataFrame", np.ndarray], Union["cudf.DataFrame", np.ndarray]],
+            pd.DataFrame,
+        ],
     ]:
         cuml_alg_params = self.cuml_params.copy()
 
@@ -395,7 +400,7 @@ class PCAModel(PCAClass, _CumlModelWithColumns, _PCACumlParams):
 
             return pd.Series(list(res))
 
-        return _construct_pca, _transform_internal
+        return _construct_pca, _transform_internal, None
 
     def _out_schema(self, input_schema: StructType) -> Union[StructType, str]:
         assert self.dtype is not None

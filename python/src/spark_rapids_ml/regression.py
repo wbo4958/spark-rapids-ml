@@ -56,6 +56,7 @@ from .core import (
     _CumlEstimatorSupervised,
     _CumlModelSupervised,
     param_alias,
+    transform_category,
 )
 from .params import HasFeaturesCols, P, _CumlClass, _CumlParams
 from .tree import (
@@ -505,10 +506,14 @@ class LinearRegressionModel(
         return self.cpu().evaluate(dataset)
 
     def _get_cuml_transform_func(
-        self, dataset: DataFrame
+        self, dataset: DataFrame, category: str = transform_category.transform
     ) -> Tuple[
         Callable[..., CumlT],
         Callable[[CumlT, Union["cudf.DataFrame", np.ndarray]], pd.DataFrame],
+        Callable[
+            [Union["cudf.DataFrame", np.ndarray], Union["cudf.DataFrame", np.ndarray]],
+            pd.DataFrame,
+        ],
     ]:
         coef_ = self.coef_
         intercept_ = self.intercept_
@@ -530,7 +535,7 @@ class LinearRegressionModel(
             ret = lr.predict(pdf)
             return pd.Series(ret)
 
-        return _construct_lr, _predict
+        return _construct_lr, _predict, None
 
 
 class _RandomForestRegressorClass(_RandomForestClass):
