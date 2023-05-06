@@ -289,9 +289,14 @@ class RandomForestClassificationModel(
     ) -> Tuple[
         Callable[..., CumlT],
         Callable[[CumlT, Union["cudf.DataFrame", np.ndarray]], pd.DataFrame],
-        Callable[
-            [Union["cudf.DataFrame", np.ndarray], Union["cudf.DataFrame", np.ndarray]],
-            pd.DataFrame,
+        Optional[
+            Callable[
+                [
+                    Union["cudf.DataFrame", np.ndarray],
+                    Union["cudf.DataFrame", np.ndarray],
+                ],
+                pd.DataFrame,
+            ]
         ],
     ]:
         _construct_rf, _, _ = super()._get_cuml_transform_func(dataset)
@@ -300,13 +305,16 @@ class RandomForestClassificationModel(
             data = {}
             rf.update_labels = False
             data[pred.prediction] = rf.predict(pdf)
-            probs = rf.predict_proba(pdf)
-            if isinstance(probs, pd.DataFrame):
-                # For 2302, when input is multi-cols, the output will be DataFrame
-                data[pred.probability] = pd.Series(probs.values.tolist())
-            else:
-                # should be np.ndarray
-                data[pred.probability] = pd.Series(list(probs))
+
+            if category == transform_category.transform:
+                # transform_evaluate doesn't need probs for f1 score.
+                probs = rf.predict_proba(pdf)
+                if isinstance(probs, pd.DataFrame):
+                    # For 2302, when input is multi-cols, the output will be DataFrame
+                    data[pred.probability] = pd.Series(probs.values.tolist())
+                else:
+                    # should be np.ndarray
+                    data[pred.probability] = pd.Series(list(probs))
 
             return pd.DataFrame(data)
 
@@ -314,6 +322,7 @@ class RandomForestClassificationModel(
             input: Union["cudf.DataFrame", np.ndarray],
             transformed: Union["cudf.DataFrame", np.ndarray],
         ) -> pd.DataFrame:
+            # calculate the count of (label, prediction)
             comb = pd.DataFrame(
                 {"label": input["label"], "prediction": transformed[pred.prediction]}
             )
@@ -344,7 +353,7 @@ class RandomForestClassificationModel(
         """
 
         if self._num_classes <= 2:
-            raise NotImplementedError("Binary classification is not supported yet.")
+            raise NotImplementedError("Binary classification is unsupported yet.")
 
         schema = StructType(
             [
@@ -357,5 +366,5 @@ class RandomForestClassificationModel(
         rows = super()._transform_evaluate(dataset, schema).collect()
 
         metrics = MulticlassMetrics(self._num_classes, rows)
-        z = metrics.weighted_fmeasure()
-        return z
+        f1_score = metrics.weighted_fmeasure()
+        return f1_score

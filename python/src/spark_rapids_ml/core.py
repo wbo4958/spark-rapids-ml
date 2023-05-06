@@ -620,9 +620,14 @@ class _CumlModel(Model, _CumlParams, _CumlCommon):
     ) -> Tuple[
         Callable[..., CumlT],
         Callable[[CumlT, Union["cudf.DataFrame", np.ndarray]], pd.DataFrame],
-        Callable[
-            [Union["cudf.DataFrame", np.ndarray], Union["cudf.DataFrame", np.ndarray]],
-            pd.DataFrame,
+        Optional[
+            Callable[
+                [
+                    Union["cudf.DataFrame", np.ndarray],
+                    Union["cudf.DataFrame", np.ndarray],
+                ],
+                pd.DataFrame,
+            ]
         ],
     ]:
         """

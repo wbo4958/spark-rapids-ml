@@ -400,9 +400,14 @@ class KMeansModel(KMeansClass, _CumlModelWithPredictionCol, _KMeansCumlParams):
     ) -> Tuple[
         Callable[..., CumlT],
         Callable[[CumlT, Union["cudf.DataFrame", np.ndarray]], pd.DataFrame],
-        Callable[
-            [Union["cudf.DataFrame", np.ndarray], Union["cudf.DataFrame", np.ndarray]],
-            pd.DataFrame,
+        Optional[
+            Callable[
+                [
+                    Union["cudf.DataFrame", np.ndarray],
+                    Union["cudf.DataFrame", np.ndarray],
+                ],
+                pd.DataFrame,
+            ]
         ],
     ]:
         cuml_alg_params = self.cuml_params.copy()

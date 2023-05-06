@@ -469,9 +469,14 @@ class _RandomForestModel(
     ) -> Tuple[
         Callable[..., CumlT],
         Callable[[CumlT, Union["cudf.DataFrame", np.ndarray]], pd.DataFrame],
-        Callable[
-            [Union["cudf.DataFrame", np.ndarray], Union["cudf.DataFrame", np.ndarray]],
-            pd.DataFrame,
+        Optional[
+            Callable[
+                [
+                    Union["cudf.DataFrame", np.ndarray],
+                    Union["cudf.DataFrame", np.ndarray],
+                ],
+                pd.DataFrame,
+            ]
         ],
     ]:
         treelite_model = self._treelite_model

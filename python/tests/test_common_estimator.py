@@ -270,9 +270,14 @@ class SparkRapidsMLDummyModel(
     ) -> Tuple[
         Callable[..., CumlT],
         Callable[[CumlT, Union["cudf.DataFrame", np.ndarray]], pd.DataFrame],
-        Callable[
-            [Union["cudf.DataFrame", np.ndarray], Union["cudf.DataFrame", np.ndarray]],
-            pd.DataFrame,
+        Optional[
+            Callable[
+                [
+                    Union["cudf.DataFrame", np.ndarray],
+                    Union["cudf.DataFrame", np.ndarray],
+                ],
+                pd.DataFrame,
+            ]
         ],
     ]:
         model_attribute_a = self.model_attribute_a
