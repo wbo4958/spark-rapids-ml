@@ -238,8 +238,6 @@ class RandomForestClassificationModel(
             self._copyValues(self._rf_spark_model)
         return self._rf_spark_model
 
-
-
     def _is_classification(self) -> bool:
         return True
 
@@ -313,11 +311,15 @@ class RandomForestClassificationModel(
             return pd.DataFrame(data)
 
         def _evaluate(
-                input: Union["cudf.DataFrame", np.ndarray],
-                transformed: Union["cudf.DataFrame", np.ndarray]
+            input: Union["cudf.DataFrame", np.ndarray],
+            transformed: Union["cudf.DataFrame", np.ndarray],
         ) -> pd.DataFrame:
-            comb = pd.DataFrame({"label": input["label"], "prediction": transformed[pred.prediction]})
-            confusion = comb.groupby(["label", "prediction"]).size().reset_index(name="total")
+            comb = pd.DataFrame(
+                {"label": input["label"], "prediction": transformed[pred.prediction]}
+            )
+            confusion = (
+                comb.groupby(["label", "prediction"]).size().reset_index(name="total")
+            )
             return confusion
 
         return _construct_rf, _predict, _evaluate
@@ -344,11 +346,13 @@ class RandomForestClassificationModel(
         if self._num_classes <= 2:
             raise NotImplementedError("Binary classification is not supported yet.")
 
-        schema = StructType([
-            StructField("label", FloatType()),
-            StructField("prediction", FloatType()),
-            StructField("total", FloatType())
-        ])
+        schema = StructType(
+            [
+                StructField("label", FloatType()),
+                StructField("prediction", FloatType()),
+                StructField("total", FloatType()),
+            ]
+        )
 
         rows = super()._transform_evaluate(dataset, schema).collect()
 
