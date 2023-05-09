@@ -28,7 +28,7 @@ from typing import (
     Tuple,
     Type,
     TypeVar,
-    Union,
+    Union, cast, Sequence,
 )
 
 import numpy as np
@@ -82,6 +82,9 @@ if TYPE_CHECKING:
     CumlT = TypeVar("CumlT", PCAMG, KMeansMG)
 else:
     CumlT = Any
+
+T = TypeVar("T")
+M = TypeVar("M", bound="Transformer")
 
 _SinglePdDataFrameBatchType = Tuple[
     pd.DataFrame, Optional[pd.DataFrame], Optional[pd.DataFrame]
@@ -377,7 +380,7 @@ class _CumlCaller(_CumlParams, _CumlCommon):
         raise NotImplementedError()
 
     def _call_cuml_fit_func(
-        self, dataset: DataFrame, partially_collect: bool = True
+        self, dataset: DataFrame, partially_collect: bool = True, paramMaps: Optional[Sequence["ParamMap"]] = None,
     ) -> RDD:
         """
         Fits a model to the input dataset. This is called by the default implementation of fit.
@@ -409,6 +412,13 @@ class _CumlCaller(_CumlParams, _CumlCommon):
         params: Dict[str, Any] = {
             param_alias.cuml_init: self.cuml_params,
         }
+
+        spark_to_cuml_params = self._param_mapping()
+        fit_multiple_params = []
+        if paramMaps is not None:
+            for paramMap in paramMaps:
+                for k, v in paramMap:
+                    fit_multiple_params = []
 
         cuml_fit_func = self._get_cuml_fit_func(dataset)
         array_order = self._fit_array_order()
@@ -510,17 +520,59 @@ class _CumlEstimator(Estimator, _CumlCaller):
         """
         raise NotImplementedError()
 
-    def _fit(self, dataset: DataFrame) -> "_CumlModel":
-        pipelined_rdd = self._call_cuml_fit_func(
-            dataset=dataset, partially_collect=True
-        )
-        ret = pipelined_rdd.collect()[0]
+    def fit(
+        self,
+        dataset: DataFrame,
+        params: Optional[Union["ParamMap", List["ParamMap"], Tuple["ParamMap"]]] = None,
+    ) -> Union[M, List[M]]:
+        if isinstance(params, (list, tuple)):
+            models: List[Optional[M]] = [None] * len(params)
+            for index, model in self._fitMultipleByGpu(dataset, params):
+                models[index] = model
+            return cast(List[M], models)
+        else:
+            return super().fit(dataset, params)
 
-        model = self._create_pyspark_model(ret)
-        model._num_workers = self._num_workers
-        self._copyValues(model)
-        self._copy_cuml_params(model)  # type: ignore
-        return model
+    @abstractmethod
+    def _fitMultipleByGpu(self, dataset: DataFrame, paramMaps: Sequence["ParamMap"]) -> Iterator[Tuple[int, M]]:
+        """Do the fit for all the params in a single pass"""
+        raise NotImplementedError()
+
+    def _fit_internal(self, dataset: DataFrame, paramMaps: Optional[Sequence["ParamMap"]]) -> List[M]:
+        pipelined_rdd = self._call_cuml_fit_func(
+            dataset=dataset, partially_collect=True, paramMaps=paramMaps,
+        )
+        rows = pipelined_rdd.collect()
+
+        if paramMaps is not None:
+            models = [None] * len(paramMaps)
+        else:
+            models = [None]
+
+        for index in range(len(models)):
+            model = self._create_pyspark_model(rows[index])
+            model._num_workers = self._num_workers
+            self._copyValues(model)
+            self._copy_cuml_params(model)  # type: ignore
+
+            if paramMaps is not None:
+                self.copy(paramMaps[index])
+            models[index] = model
+
+        return models
+
+    def _fit(self, dataset: DataFrame) -> "_CumlModel":
+        # pipelined_rdd = self._call_cuml_fit_func(
+        #     dataset=dataset, partially_collect=True
+        # )
+        # ret = pipelined_rdd.collect()[0]
+        #
+        # model = self._create_pyspark_model(ret)
+        # model._num_workers = self._num_workers
+        # self._copyValues(model)
+        # self._copy_cuml_params(model)  # type: ignore
+
+        return self._fit_internal(dataset, None)[0]
 
     def write(self) -> MLWriter:
         return _CumlEstimatorWriter(self)

@@ -16,7 +16,8 @@
 import inspect
 import logging
 import sys
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Literal, Set, Tuple, Union
+import threading
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Literal, Set, Tuple, Union, Generic, TypeVar, Iterator
 
 if TYPE_CHECKING:
     import cudf
@@ -409,3 +410,53 @@ def translate_trees(sc: SparkContext, impurity: str, model: Dict[str, Any]):  # 
         )
     elif "leaf_value" in model:
         return _create_leaf_node(sc, impurity, model)
+
+
+T = TypeVar("T")
+M = TypeVar("M", bound="Transformer")
+
+class _FitMultipleByGPUIterator(Generic[M]):
+    """
+    Used by default implementation of Estimator.fitMultiple to produce models in a thread safe
+    iterator. This class handles the simple case of fitMultiple where each param map should be
+    fit independently.
+
+    Parameters
+    ----------
+    fitSingleModel : function
+        Callable[[int], Transformer] which fits an estimator to a dataset.
+        `fitSingleModel` may be called up to `numModels` times, with a unique index each time.
+        Each call to `fitSingleModel` with an index should return the Model associated with
+        that index.
+    numModel : int
+        Number of models this iterator should produce.
+
+    Notes
+    -----
+    See :py:meth:`Estimator.fitMultiple` for more info.
+    """
+
+    def __init__(self, fitMultipleModel: Callable[[int], M], numModels: int):
+        """ """
+        self.fitMultipleModel = fitMultipleModel
+        self.numModel = numModels
+        self.counter = 0
+        self.lock = threading.Lock()
+        self.models = []
+
+    def __iter__(self) -> Iterator[Tuple[int, M]]:
+        return self
+
+    def __next__(self) -> Tuple[int, M]:
+        with self.lock:
+            index = self.counter
+            if index == 0:
+                self.models = self.fitMultipleModel()
+            if index >= self.numModel:
+                raise StopIteration("No models remaining.")
+            self.counter += 1
+        return index, self.fitSingleModel(index)
+
+    def next(self) -> Tuple[int, M]:
+        """For python2 compatibility."""
+        return self.__next__()
