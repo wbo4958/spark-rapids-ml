@@ -104,9 +104,9 @@ pred = Pred("prediction", "probability")
 
 # Global parameter alias used by core and subclasses.
 ParamAlias = namedtuple(
-    "ParamAlias", ("cuml_init", "handle", "num_cols", "part_sizes", "loop")
+    "ParamAlias", ("cuml_init", "handle", "num_cols", "part_sizes", "loop", "fit_multiple_params")
 )
-param_alias = ParamAlias("cuml_init", "handle", "num_cols", "part_sizes", "loop")
+param_alias = ParamAlias("cuml_init", "handle", "num_cols", "part_sizes", "loop", "fit_multiple_params")
 
 # Global parameter used by core and subclasses.
 TransformCategory = namedtuple(
@@ -409,16 +409,24 @@ class _CumlCaller(_CumlParams, _CumlCommon):
 
         is_local = _is_local(_get_spark_session().sparkContext)
 
+        # parameters passed to subclass
         params: Dict[str, Any] = {
             param_alias.cuml_init: self.cuml_params,
         }
 
+        # Convert the paramMaps into cuml paramMaps
         spark_to_cuml_params = self._param_mapping()
         fit_multiple_params = []
         if paramMaps is not None:
             for paramMap in paramMaps:
-                for k, v in paramMap:
-                    fit_multiple_params = []
+                tmp_fit_multiple_params = {}
+                for k, v in paramMap.items():
+                    name = k.name
+                    if name in spark_to_cuml_params:
+                        name = spark_to_cuml_params[name]
+                    tmp_fit_multiple_params[name] = v
+                fit_multiple_params.append(tmp_fit_multiple_params)
+        params[param_alias.fit_multiple_params] = fit_multiple_params
 
         cuml_fit_func = self._get_cuml_fit_func(dataset)
         array_order = self._fit_array_order()
@@ -533,12 +541,14 @@ class _CumlEstimator(Estimator, _CumlCaller):
         else:
             return super().fit(dataset, params)
 
-    @abstractmethod
     def _fitMultipleByGpu(self, dataset: DataFrame, paramMaps: Sequence["ParamMap"]) -> Iterator[Tuple[int, M]]:
         """Do the fit for all the params in a single pass"""
-        raise NotImplementedError()
+        #raise NotImplementedError()
+        return self._fit_internal(dataset, paramMaps)
+
 
     def _fit_internal(self, dataset: DataFrame, paramMaps: Optional[Sequence["ParamMap"]]) -> List[M]:
+        """Fit multiple models according to the parameters maps"""
         pipelined_rdd = self._call_cuml_fit_func(
             dataset=dataset, partially_collect=True, paramMaps=paramMaps,
         )
@@ -562,6 +572,7 @@ class _CumlEstimator(Estimator, _CumlCaller):
         return models
 
     def _fit(self, dataset: DataFrame) -> "_CumlModel":
+        """fit only 1 model"""
         # pipelined_rdd = self._call_cuml_fit_func(
         #     dataset=dataset, partially_collect=True
         # )

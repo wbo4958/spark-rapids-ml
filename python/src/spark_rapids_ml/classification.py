@@ -191,20 +191,6 @@ class RandomForestClassifier(
     def _is_classification(self) -> bool:
         return True
 
-    def fit(
-        self,
-        dataset: DataFrame,
-        params: Optional[Union["ParamMap", List["ParamMap"], Tuple["ParamMap"]]] = None,
-    ) -> Union[M, List[M]]:
-        if isinstance(params, (list, tuple)):
-            models: List[Optional[M]] = [None] * len(params)
-            for index, model in self.fitMultipleByGpu(dataset, params):
-                models[index] = model
-            return cast(List[M], models)
-        else:
-            return super().fit(dataset, params)
-
-
     def fitMultiple(self, dataset: DataFrame, paramMaps: Sequence["ParamMap"]) -> Iterator[Tuple[int, M]]:
         return super().fitMultiple(dataset, paramMaps)
 
@@ -218,10 +204,6 @@ class RandomForestClassifier(
             return estimator.fit(dataset, paramMaps)
 
         return _FitMultipleByGPUIterator(fitMultipleModel, len(paramMaps))
-
-    def fit(self, dataset: DataFrame,
-            params: Optional[Union["ParamMap", List["ParamMap"], Tuple["ParamMap"]]] = None) -> Union[M, List[M]]:
-        return super().fit(dataset, params)
 
 
 class RandomForestClassificationModel(

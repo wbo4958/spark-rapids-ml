@@ -234,8 +234,23 @@ class _RandomForestEstimator(
             dfs: CumlInputType,
             params: Dict[str, Any],
         ) -> Dict[str, Any]:
-            from pyspark import BarrierTaskContext
+            # 1. prepare the dataset
+            X_list = [item[0] for item in dfs]
+            y_list = [item[1] for item in dfs]
+            if isinstance(X_list[0], pd.DataFrame):
+                X = pd.concat(X_list)
+                y = pd.concat(y_list)
+            else:
+                # should be list of np.ndarrays here
+                X = _concat_and_free(cast(List[np.ndarray], X_list))
+                y = _concat_and_free(cast(List[np.ndarray], y_list))
 
+            if is_classification:
+                from cuml import RandomForestClassifier as cuRf
+            else:
+                from cuml import RandomForestRegressor as cuRf
+
+            from pyspark import BarrierTaskContext
             context = BarrierTaskContext.get()
             part_id = context.partitionId()
 
@@ -250,70 +265,75 @@ class _RandomForestEstimator(
                         "sqrt" if is_classification else (1 / 3.0)
                     )
 
-            if is_classification:
-                from cuml import RandomForestClassifier as cuRf
-            else:
-                from cuml import RandomForestRegressor as cuRf
+            def _single_fit(rf):
+                # Fit a random forest model on the dataset (X, y)
+                rf.fit(X, y, convert_dtype=False)
 
-            rf = cuRf(
-                n_estimators=n_estimators_per_worker[part_id],
-                output_type="cudf",
-                **rf_params,
-            )
+                # serialized_model is Dictionary type
+                serialized_model = rf._get_serialized_model()
+                pickled_model = pickle.dumps(serialized_model)
+                msg = base64.b64encode(pickled_model).decode("utf-8")
+                trees = rf.get_json()
+                data = {"model_bytes": msg, "model_json": trees}
+                messages = context.allGather(json.dumps(data))
 
-            X_list = [item[0] for item in dfs]
-            y_list = [item[1] for item in dfs]
-            if isinstance(X_list[0], pd.DataFrame):
-                X = pd.concat(X_list)
-                y = pd.concat(y_list)
-            else:
-                # should be list of np.ndarrays here
-                X = _concat_and_free(cast(List[np.ndarray], X_list))
-                y = _concat_and_free(cast(List[np.ndarray], y_list))
+                # concatenate the random forest in the worker0
+                if part_id == 0:
+                    mod_bytes = []
+                    mod_jsons = []
+                    for msg in messages:
+                        data = json.loads(msg)
+                        mod_bytes.append(
+                            pickle.loads(base64.b64decode(data["model_bytes"]))
+                        )
+                        mod_jsons.append(data["model_json"])
 
-            # Fit a random forest model on the dataset (X, y)
-            rf.fit(X, y, convert_dtype=False)
+                    all_tl_mod_handles = [rf._tl_handle_from_bytes(i) for i in mod_bytes]
+                    rf._concatenate_treelite_handle(all_tl_mod_handles)
 
-            # serialized_model is Dictionary type
-            serialized_model = rf._get_serialized_model()
-            pickled_model = pickle.dumps(serialized_model)
-            msg = base64.b64encode(pickled_model).decode("utf-8")
-            trees = rf.get_json()
-            data = {"model_bytes": msg, "model_json": trees}
-            messages = context.allGather(json.dumps(data))
+                    from cuml.fil.fil import TreeliteModel
 
-            # concatenate the random forest in the worker0
-            if part_id == 0:
-                mod_bytes = []
-                mod_jsons = []
-                for msg in messages:
-                    data = json.loads(msg)
-                    mod_bytes.append(
-                        pickle.loads(base64.b64decode(data["model_bytes"]))
+                    for tl_handle in all_tl_mod_handles:
+                        TreeliteModel.free_treelite_model(tl_handle)
+
+                    final_model_bytes = pickle.dumps(rf._get_serialized_model())
+                    final_model = base64.b64encode(final_model_bytes).decode("utf-8")
+                    result = {
+                        "treelite_model": [final_model],
+                        "dtype": rf.dtype.name,
+                        "n_cols": rf.n_cols,
+                        "model_json": [mod_jsons],
+                    }
+                    if is_classification:
+                        result["num_classes"] = rf.num_classes
+                    return result
+                else:
+                    return {}
+
+            fit_multiple_params = params[param_alias.fit_multiple_params]
+            print(f"-- fit_multiple_params {fit_multiple_params}")
+            if len(fit_multiple_params) > 1:
+                models = []
+                for i in range(len(fit_multiple_params)):
+                    tmp_rf_params = rf_params.copy()
+                    tmp_rf_params.update(fit_multiple_params[i])
+                    print(f"-{i} round ----- {tmp_rf_params}")
+                    rf = cuRf(
+                        n_estimators=n_estimators_per_worker[part_id],
+                        output_type="cudf",
+                        **tmp_rf_params,
                     )
-                    mod_jsons.append(data["model_json"])
+                    models.append(_single_fit(rf))
+                    del rf
+                return models[0]
 
-                all_tl_mod_handles = [rf._tl_handle_from_bytes(i) for i in mod_bytes]
-                rf._concatenate_treelite_handle(all_tl_mod_handles)
-
-                from cuml.fil.fil import TreeliteModel
-
-                for tl_handle in all_tl_mod_handles:
-                    TreeliteModel.free_treelite_model(tl_handle)
-
-                final_model_bytes = pickle.dumps(rf._get_serialized_model())
-                final_model = base64.b64encode(final_model_bytes).decode("utf-8")
-                result = {
-                    "treelite_model": [final_model],
-                    "dtype": rf.dtype.name,
-                    "n_cols": rf.n_cols,
-                    "model_json": [mod_jsons],
-                }
-                if is_classification:
-                    result["num_classes"] = rf.num_classes
-                return result
             else:
-                return {}
+                rf = cuRf(
+                    n_estimators=n_estimators_per_worker[part_id],
+                    output_type="cudf",
+                    **rf_params,
+                )
+                return _single_fit(rf)
 
         return _rf_fit
 
