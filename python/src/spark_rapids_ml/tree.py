@@ -299,13 +299,16 @@ class _RandomForestEstimator(
                     final_model_bytes = pickle.dumps(rf._get_serialized_model())
                     final_model = base64.b64encode(final_model_bytes).decode("utf-8")
                     result = {
-                        "treelite_model": [final_model],
+                        "treelite_model": final_model,
                         "dtype": rf.dtype.name,
                         "n_cols": rf.n_cols,
-                        "model_json": [mod_jsons],
+                        "model_json": mod_jsons,
                     }
+
                     if is_classification:
                         result["num_classes"] = rf.num_classes
+
+                    print(f"----------------- result: {result}")
                     return result
                 else:
                     return {}
@@ -325,7 +328,13 @@ class _RandomForestEstimator(
                     )
                     models.append(_single_fit(rf))
                     del rf
-                return models[0]
+
+                models_dict = {}
+                for k in models[0].keys():
+                    models_dict[k] = [m[k] for m in models]
+
+                print(f"---------------- models_dict {models_dict}")
+                return models_dict
 
             else:
                 rf = cuRf(
