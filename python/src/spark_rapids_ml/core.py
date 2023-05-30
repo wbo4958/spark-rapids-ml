@@ -872,19 +872,23 @@ class _CumlModel(Model, _CumlParams, _CumlCommon):
             _CumlCommon.set_gpu_device(context, is_local, True)
 
             # Construct the cuml counterpart object
-            cuml_object = construct_cuml_object_func()
+            cuml_instance = construct_cuml_object_func()
+            cuml_objects = cuml_instance if isinstance(cuml_instance, list) else list(cuml_instance)
 
+            # TODO try to concatenate all the data and do the transform.
             for pdf in pdf_iter:
-                # Transform the dataset
-                if input_is_multi_cols:
-                    data = cuml_transform_func(cuml_object, pdf[select_cols])
-                else:
-                    nparray = np.array(list(pdf[select_cols[0]]), order=array_order)
-                    data = cuml_transform_func(cuml_object, nparray)
-                # Evaluate the dataset if necessary.
-                if evaluate_func is not None:
-                    data = evaluate_func(pdf, data)
-                yield data
+                for index, cuml_object in enumerate(cuml_objects):
+                    # Transform the dataset
+                    if input_is_multi_cols:
+                        data = cuml_transform_func(cuml_object, pdf[select_cols])
+                    else:
+                        nparray = np.array(list(pdf[select_cols[0]]), order=array_order)
+                        data = cuml_transform_func(cuml_object, nparray)
+                    # Evaluate the dataset if necessary.
+                    if evaluate_func is not None:
+                        data = evaluate_func(pdf, data)
+                        data["model_index"] = index
+                    yield data
 
         return dataset.mapInPandas(_transform_udf, schema=schema)  # type: ignore
 

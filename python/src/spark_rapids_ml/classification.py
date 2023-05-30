@@ -298,8 +298,8 @@ class RandomForestClassificationModel(
         self,
         n_cols: int,
         dtype: str,
-        treelite_model: str,
-        model_json: List[str],
+        treelite_model: Union[str, List[str]],
+        model_json: Union[List[str], List[List[str]]],
         num_classes: int,
     ):
         super().__init__(
@@ -312,6 +312,20 @@ class RandomForestClassificationModel(
         self._num_classes = num_classes
         self._model_json = model_json
         self._rf_spark_model: Optional[SparkRandomForestClassificationModel] = None
+
+    @classmethod
+    def _combine(cls, models: List["RandomForestClassificationModel"]) -> "RandomForestClassificationModel":
+        assert len(models) > 0
+        treelite_models = [model._treelite_model for model in models]
+        model_jsons = [model._model_json for model in models]
+        attrs = models[0].get_model_attributes()
+        assert attrs is not None
+        attrs["treelite_model"] = treelite_models
+        attrs["model_json"] = model_jsons
+        rf_model = cls(**attrs)
+        models[0]._copyValues(rf_model)
+        models[0]._copy_cuml_params(rf_model)
+        return rf_model
 
     def cpu(self) -> SparkRandomForestClassificationModel:
         """Return the PySpark ML RandomForestClassificationModel"""
@@ -442,6 +456,7 @@ class RandomForestClassificationModel(
 
         schema = StructType(
             [
+                StructField("model_index", IntegerType()),
                 StructField("label", FloatType()),
                 StructField("prediction", FloatType()),
                 StructField("total", FloatType()),
@@ -450,31 +465,36 @@ class RandomForestClassificationModel(
 
         rows = super()._transform_evaluate_internal(dataset, schema).collect()
 
-        tp_by_class = {}
-        fp_by_class = {}
-        label_count_by_class = {}
-        label_count = 0
+        num_models = len(self._treelite_model) if isinstance(self._treelite_model, list) else 1
+        tp_by_class = [{} for i in range(num_models)]
+        fp_by_class = [{} for i in range(num_models)]
+        label_count_by_class = [{} for i in range(num_models)]
+        label_count = [0 for i in range(num_models)]
 
-        for i in range(self._num_classes):
-            tp_by_class[float(i)] = 0.0
-            label_count_by_class[float(i)] = 0.0
-            fp_by_class[float(i)] = 0.0
+        for i in range(num_models):
+            for j in range(self._num_classes):
+                tp_by_class[i][float(j)] = 0.0
+                label_count_by_class[i][float(j)] = 0.0
+                fp_by_class[i][float(j)] = 0.0
 
         for row in rows:
-            label_count += row.total
-            label_count_by_class[row.label] += row.total
+            label_count[row.model_index] += row.total
+            label_count_by_class[row.model_index][row.label] += row.total
 
             if row.label == row.prediction:
-                tp_by_class[row.label] += row.total
+                tp_by_class[row.model_index][row.label] += row.total
             else:
-                fp_by_class[row.prediction] += row.total
+                fp_by_class[row.model_index][row.prediction] += row.total
 
-        metrics = MulticlassMetrics(
-            num_class=self._num_classes,
-            tp=tp_by_class,
-            fp=fp_by_class,
-            label=label_count_by_class,
-            label_count=label_count,
-        )
-        f1_score = metrics.weighted_fmeasure()
-        return f1_score
+        f1_scores = []
+        for i in range(num_models):
+            metrics = MulticlassMetrics(
+                num_class=self._num_classes,
+                tp=tp_by_class[i],
+                fp=fp_by_class[i],
+                label=label_count_by_class[i],
+                label_count=label_count[i],
+            )
+            f1_score = metrics.weighted_fmeasure()
+            f1_scores.append(f1_score)
+        return f1_scores
