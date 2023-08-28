@@ -18,8 +18,10 @@ import math
 import numpy as np
 import pandas as pd
 import pytest
-from pyspark.ml.evaluation import MulticlassClassificationEvaluator, RegressionEvaluator
+from pyspark import Row
+from pyspark.ml.evaluation import MulticlassClassificationEvaluator, RegressionEvaluator, BinaryClassificationEvaluator
 
+from spark_rapids_ml.metrics.BinaryClassificationMetrics import BinaryClassificationMetrics
 from spark_rapids_ml.metrics.MulticlassMetrics import MulticlassMetrics
 from spark_rapids_ml.metrics.RegressionMetrics import RegressionMetrics
 
@@ -126,6 +128,41 @@ def test_regression_metrics(metric_name: str, max_record_batch: int) -> None:
         )
         evaluator = RegressionEvaluator(
             predictionCol="prediction",
+            labelCol="label",
+        )
+        evaluator.setMetricName(metric_name)  # type: ignore
+        assert math.fabs(evaluator.evaluate(sdf) - metrics.evaluate((evaluator))) < 1e-6
+
+
+def get_binary_classification_metrics(pdf: pd.DataFrame) -> BinaryClassificationMetrics:
+    confusions_df = pdf.groupby(["prediction", "label"])["label"].agg("count").reset_index(name="count")
+    rows = []
+    for index, df_row in confusions_df.iterrows():
+        rows.append(Row(rawPrediction=df_row['prediction'], label=df_row['label'], count=df_row['count']))
+
+    return BinaryClassificationMetrics.from_rows(rows)
+
+
+@pytest.mark.parametrize("metric_name", ["areaUnderROC"])
+@pytest.mark.parametrize("max_record_batch", [100, 10000])
+def test_binary_classification_metrics(metric_name: str, max_record_batch: int) -> None:
+    columns = ["label", "prediction"]
+    size = 10000
+    np.random.seed(10)
+    pdf = pd.DataFrame({
+        "prediction": np.random.randint(2, size=size).astype(np.double),
+        "label": np.random.randint(2, size=size).astype(np.double)
+    })
+
+    metrics = get_binary_classification_metrics(pdf)
+
+    conf = {"spark.sql.execution.arrow.maxRecordsPerBatch": str(max_record_batch)}
+    with CleanSparkSession(conf) as spark:
+        sdf = spark.createDataFrame(
+            pdf.to_numpy().tolist(), ", ".join([f"{n} double" for n in columns])
+        )
+        evaluator = BinaryClassificationEvaluator(
+            rawPredictionCol="prediction",
             labelCol="label",
         )
         evaluator.setMetricName(metric_name)  # type: ignore
