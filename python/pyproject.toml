@@ -24,3 +24,7 @@ classifiers = [
 [build-system]
 requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
+
+# Note the quotes around pyspark_project.backend in order to escape the dot .
+[project.entry-points."pyspark_project.backend"]
+cuml = "spark_rapids_ml.backend:SparkRapidsMLBackend"
