@@ -71,9 +71,16 @@ class PythonRunnerModel(transform: Transform,
 
   override protected def receiveFromPython(dataIn: DataInputStream): Object = {
     // Read the model target id in py4j server
-    val modelTargetId = PythonWorkerUtils.readUTF(dataIn)
-    val o = PythonRunner.getObjectAndDeref(modelTargetId)
-    o
+//    val x = dataIn.readInt()
+//    println(s"--------------- in receiveFromPython ${x}")
+//    val dfTargetId = PythonWorkerUtils.readUTF(dataIn)
+//    val o = PythonRunner.getObjectAndDeref(dfTargetId)
+//    println("--------------- in receiveFromPython from PythonRunnerModel begin to show")
+//    o.asInstanceOf[DataFrame].show()
+//    println("--------------- done in receiveFromPython from PythonRunnerModel begin to show")
+//    o
+    val x = 10
+    x.asInstanceOf[Object]
   }
 
   override def close(): Unit = {

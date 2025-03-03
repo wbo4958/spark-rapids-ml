@@ -16,7 +16,14 @@ class RapidsLogisticRegressionModel(val coef: String,
   extends LogisticRegressionModel(uid = "asd", coefficients = Vectors.dense(Array(0.1, 0.2)), intercept = 0.3)
   with RapidsEstimator {
 
-  override def transform(dataset: Dataset[_], paramMap: ParamMap): DataFrame = {
+  override def copy(extra: ParamMap): RapidsLogisticRegressionModel = {
+    val newModel = copyValues(new RapidsLogisticRegressionModel(coef, intercepts, numClass,
+      nCols, dtype, nIters, objective), extra)
+    newModel.setSummary(trainingSummary).setParent(parent)
+    newModel
+  }
+
+  override def transform(dataset: Dataset[_]): DataFrame = {
     println("in RapidsLogisticRegressionModel transform")
     val params = RapidsUtils.getUserDefinedParams(this)
 

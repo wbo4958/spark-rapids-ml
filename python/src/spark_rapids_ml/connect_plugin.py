@@ -141,9 +141,14 @@ def main(infile: IO, outfile: IO) -> None:
             objective = json.loads(utf8_deserializer.loads(infile))
             lr_model = LogisticRegressionModel(coef_=coef, intercept_=intercept, classes_=num_class,
                                                n_cols=n_cols, dtype=dtype, num_iters=n_iters, objective=objective)
+            print("------------- begin to transform in LogisticRegressionModel")
             transformed_df = lr_model.transform(df)
             transformed_df.show()
 
+            # write_int(200, outfile)
+            # transformed_df_id = transformed_df._jdf._target_id.encode("utf-8")
+            # print(f"======> transformed_df-id is {transformed_df_id}")
+            # write_with_length(transformed_df_id, outfile)
 
         else:
             raise RuntimeError(f"Unsupported estimator: {estimator_name}")
