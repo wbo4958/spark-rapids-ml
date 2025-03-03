@@ -20,8 +20,7 @@ import org.apache.commons.logging.LogFactory
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.sql.Dataset
 import org.apache.spark.ml.classification.{LogisticRegression, LogisticRegressionModel}
-import org.apache.spark.ml.rapids.{Fit, PythonRunner, RapidsUtils}
-
+import org.apache.spark.ml.rapids.{Fit, PythonRunner, RapidsLogisticRegressionModel, RapidsUtils}
 
 class RapidsLogisticRegression(override val uid: String) extends LogisticRegression with RapidsEstimator {
 
@@ -29,7 +28,7 @@ class RapidsLogisticRegression(override val uid: String) extends LogisticRegress
 
   def this() = this(Identifiable.randomUID("logreg"))
 
-  override def train(dataset: Dataset[_]): LogisticRegressionModel = {
+  override def train(dataset: Dataset[_]): RapidsLogisticRegressionModel = {
     logger.info("Training ...")
     // Get the user-defined parameters and pass them to python process as a dictionary
     val params = RapidsUtils.getUserDefinedParams(this)
@@ -40,7 +39,7 @@ class RapidsLogisticRegression(override val uid: String) extends LogisticRegress
 
     val model = withResource(runner) { _ =>
       runner.runInPython(useDaemon = false)
-    }.asInstanceOf[LogisticRegressionModel]
+    }.asInstanceOf[RapidsLogisticRegressionModel]
 
     logger.info("Training finished")
     model

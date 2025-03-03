@@ -116,7 +116,36 @@ def main(infile: IO, outfile: IO) -> None:
             model: LogisticRegressionModel = lr.fit(df)
             model_cpu = model.cpu()
             model_targe_id = model_cpu._java_obj._target_id.encode("utf-8")
+            write_int(20, outfile)
             write_with_length(model_targe_id, outfile)
+            print(f"----------------------- 0_0 {json.dumps(model.coef_).encode("utf-8")}")
+            write_with_length(json.dumps(model.coef_).encode("utf-8"), outfile)
+            print("----------------------- 1")
+            write_with_length(json.dumps(model.intercept_).encode("utf-8"), outfile)
+            print("----------------------- 2")
+            write_with_length(json.dumps(model.classes_).encode("utf-8"), outfile)
+            print("----------------------- 3")
+            write_int(model.n_cols, outfile)
+            write_with_length(model.dtype.encode("utf-8"), outfile)
+            write_int(model.num_iters, outfile)
+            write_with_length(json.dumps(model.objective).encode("utf-8"), outfile)
+            print("----------------------- 1")
+
+        elif estimator_name == "LogisticRegressionModel":
+            print("in LogisticRegressionModel")
+            coef = json.loads(utf8_deserializer.loads(infile))
+            intercept = json.loads(utf8_deserializer.loads(infile))
+            num_class = json.loads(utf8_deserializer.loads(infile))
+            n_cols = read_int(infile)
+            dtype = utf8_deserializer.loads(infile)
+            n_iters = read_int(infile)
+            objective = json.loads(utf8_deserializer.loads(infile))
+            lr_model = LogisticRegressionModel(coef_=coef, intercept_=intercept, classes_=num_class,
+                                               n_cols=n_cols, dtype=dtype, num_iters=n_iters, objective=objective)
+            transformed_df = lr_model.transform(df)
+            transformed_df.show()
+
+
         else:
             raise RuntimeError(f"Unsupported estimator: {estimator_name}")
 

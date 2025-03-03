@@ -42,7 +42,7 @@ private[this] object PythonRunner {
 
   lazy val AUTH_TOKEN: String = generateSecrets
 
-  private lazy val RAPIDS_PYTHON_FUNC = {
+  lazy val RAPIDS_PYTHON_FUNC = {
     val defaultPythonExec: String = sys.env.getOrElse(
       "PYSPARK_DRIVER_PYTHON", sys.env.getOrElse("PYSPARK_PYTHON", "python3"))
     val pythonVer: String =
@@ -118,9 +118,25 @@ class PythonRunner(fit: Fit,
   }
 
   override protected def receiveFromPython(dataIn: DataInputStream): Object = {
+
+    val x = dataIn.readInt()
     // Read the model target id in py4j server
+    print(s"==========> in receiveFromPython ---${x}")
     val modelTargetId = PythonWorkerUtils.readUTF(dataIn)
     PythonRunner.getObjectAndDeref(modelTargetId)
+    print("==========> in receiveFromPython 0")
+    val coef = PythonWorkerUtils.readUTF(dataIn)
+    print("==========> in receiveFromPython 1 receiveFromPython 1")
+    val intercept = PythonWorkerUtils.readUTF(dataIn)
+    print("==========> in receiveFromPython 2 receiveFromPython 2")
+    val numClass = PythonWorkerUtils.readUTF(dataIn)
+    print("==========> in receiveFromPython 3 receiveFromPython 3")
+    val nCols = dataIn.readInt()
+    val dtype = PythonWorkerUtils.readUTF(dataIn)
+    val nIters = dataIn.readInt()
+    val objective = PythonWorkerUtils.readUTF(dataIn)
+
+    new RapidsLogisticRegressionModel(coef, intercept, numClass, nCols, dtype, nIters, objective)
   }
 
   override def close(): Unit = {
