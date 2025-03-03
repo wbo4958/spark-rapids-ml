@@ -17,7 +17,7 @@ class RapidsLogisticRegressionModel(val coef: String,
   with RapidsEstimator {
 
   override def transform(dataset: Dataset[_], paramMap: ParamMap): DataFrame = {
-
+    println("in RapidsLogisticRegressionModel transform")
     val params = RapidsUtils.getUserDefinedParams(this)
 
     val runner = new PythonRunnerModel(
