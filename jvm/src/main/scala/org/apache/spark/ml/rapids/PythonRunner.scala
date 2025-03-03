@@ -119,9 +119,7 @@ class PythonRunner(fit: Fit,
 
   override protected def receiveFromPython(dataIn: DataInputStream): Object = {
 
-    val x = dataIn.readInt()
     // Read the model target id in py4j server
-    println(s"==========> in receiveFromPython ---${x}")
     val modelTargetId = PythonWorkerUtils.readUTF(dataIn)
     PythonRunner.getObjectAndDeref(modelTargetId)
     println("==========> in receiveFromPython 0")

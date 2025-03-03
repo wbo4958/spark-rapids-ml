@@ -116,7 +116,6 @@ def main(infile: IO, outfile: IO) -> None:
             model: LogisticRegressionModel = lr.fit(df)
             model_cpu = model.cpu()
             model_targe_id = model_cpu._java_obj._target_id.encode("utf-8")
-            write_int(20, outfile)
             write_with_length(model_targe_id, outfile)
             print(f"----------------------- 0_0 {json.dumps(model.coef_).encode("utf-8")}")
             write_with_length(json.dumps(model.coef_).encode("utf-8"), outfile)
