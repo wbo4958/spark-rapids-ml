@@ -2,6 +2,7 @@ package org.apache.spark.ml.rapids
 
 import com.nvidia.rapids.ml.RapidsEstimator
 import org.apache.spark.ml.classification.LogisticRegressionModel
+import org.apache.spark.ml.linalg.Vectors
 import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.sql.{DataFrame, Dataset}
 
@@ -11,7 +12,8 @@ class RapidsLogisticRegressionModel(val coef: String,
                                     val nCols: Int,
                                     val dtype: String,
                                     val nIters: Int,
-                                    val objective: String) extends LogisticRegressionModel
+                                    val objective: String)
+  extends LogisticRegressionModel(uid = "asd", coefficients = Vectors.dense(Array(0.1, 0.2)), intercept = 0.3)
   with RapidsEstimator {
 
   override def transform(dataset: Dataset[_], paramMap: ParamMap): DataFrame = {
