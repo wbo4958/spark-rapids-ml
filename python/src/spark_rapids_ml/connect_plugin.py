@@ -128,7 +128,6 @@ def main(infile: IO, outfile: IO) -> None:
             write_with_length(model.dtype.encode("utf-8"), outfile)
             write_int(model.num_iters, outfile)
             write_with_length(json.dumps(model.objective).encode("utf-8"), outfile)
-            print("----------------------- 1")
 
         elif estimator_name == "LogisticRegressionModel":
             print("in LogisticRegressionModel")
@@ -139,17 +138,17 @@ def main(infile: IO, outfile: IO) -> None:
             dtype = utf8_deserializer.loads(infile)
             n_iters = read_int(infile)
             objective = json.loads(utf8_deserializer.loads(infile))
+
             lr_model = LogisticRegressionModel(coef_=coef, intercept_=intercept, classes_=num_class,
                                                n_cols=n_cols, dtype=dtype, num_iters=n_iters, objective=objective)
-            print("------------- begin to transform in LogisticRegressionModel")
+            # print("------------- begin to transform in LogisticRegressionModel")
             transformed_df = lr_model.transform(df)
-            transformed_df.show()
+            # transformed_df.show()
+            print(f"write 121 to java")
 
-            # write_int(200, outfile)
-            # transformed_df_id = transformed_df._jdf._target_id.encode("utf-8")
-            # print(f"======> transformed_df-id is {transformed_df_id}")
-            # write_with_length(transformed_df_id, outfile)
-
+            transformed_df_id = transformed_df._jdf._target_id.encode("utf-8")
+            print(f"======> transformed_df-id is {transformed_df_id}")
+            write_with_length(transformed_df_id, outfile)
         else:
             raise RuntimeError(f"Unsupported estimator: {estimator_name}")
 
@@ -163,13 +162,24 @@ def main(infile: IO, outfile: IO) -> None:
             faulthandler_log_file.close()
             os.remove(faulthandler_log_path)
 
+    print("before send_accumulator_updates")
     send_accumulator_updates(outfile)
+
+    def flush():
+        outfile.flush()
+        # Wait java
+        import time
+        time.sleep(2)
     # check end of stream
     if read_int(infile) == SpecialLengths.END_OF_STREAM:
+        print("begin to write end of stream")
         write_int(SpecialLengths.END_OF_STREAM, outfile)
+        flush()
     else:
         # write a different value to tell JVM to not reuse this worker
+        print("begin to tell jvm not resue this worker")
         write_int(SpecialLengths.END_OF_DATA_SECTION, outfile)
+        flush()
         sys.exit(-1)
 
 

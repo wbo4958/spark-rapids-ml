@@ -38,12 +38,12 @@ case class Transform(name: String, params: String, model: RapidsLogisticRegressi
  * PythonRunner is a bridge to launch/manage Python process. And it sends the
  * estimator related message to python process and run.
  *
- * @param transform     the estimator information
- * @param dataset input dataset
+ * @param transform the estimator information
+ * @param dataset   input dataset
  */
 class PythonRunnerModel(transform: Transform,
-                   dataset: DataFrame,
-                   func: PythonFunction = PythonRunner.RAPIDS_PYTHON_FUNC)
+                        dataset: DataFrame,
+                        func: PythonFunction = PythonRunner.RAPIDS_PYTHON_FUNC)
   extends PythonPlannerRunner[Object](func) with AutoCloseable {
 
   private val datasetKey = PythonRunner.putNewObjectToPy4j(dataset)
@@ -71,16 +71,14 @@ class PythonRunnerModel(transform: Transform,
 
   override protected def receiveFromPython(dataIn: DataInputStream): Object = {
     // Read the model target id in py4j server
-//    val x = dataIn.readInt()
-//    println(s"--------------- in receiveFromPython ${x}")
-//    val dfTargetId = PythonWorkerUtils.readUTF(dataIn)
-//    val o = PythonRunner.getObjectAndDeref(dfTargetId)
+    //    val x = dataIn.readInt()
+    //    println(s"--------------- in receiveFromPython ${x}")
+    val dfTargetId = PythonWorkerUtils.readUTF(dataIn)
+    val o = PythonRunner.getObjectAndDeref(dfTargetId)
 //    println("--------------- in receiveFromPython from PythonRunnerModel begin to show")
 //    o.asInstanceOf[DataFrame].show()
 //    println("--------------- done in receiveFromPython from PythonRunnerModel begin to show")
-//    o
-    val x = 10
-    x.asInstanceOf[Object]
+    o
   }
 
   override def close(): Unit = {

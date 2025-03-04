@@ -31,12 +31,11 @@ class RapidsLogisticRegressionModel(val coef: String,
       Transform(estimatorName, params, this),
       dataset.toDF)
 
-    withResource(runner) { _ =>
+    val transformedDf = withResource(runner) { _ =>
       runner.runInPython(useDaemon = false)
-    }
+    }.asInstanceOf[DataFrame]
 
-    dataset.toDF()
-
+    transformedDf
   }
 
   /**
