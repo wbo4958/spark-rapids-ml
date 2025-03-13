@@ -10,8 +10,7 @@ fi
 
 CONNECT_JAR=`readlink -f $SPARK_HOME/jars/spark-connect_2.13*`
 
-RAPIDS_ML_jar=/home/bobwang/work.d/spark-rapids-ml/jvm/target/com.nvidia.rapids.ml-1.0-SNAPSHOT.jar
-#RAPIDS_ML_jar=""
+RAPIDS_ML_jar=/home/bobwang/work.d/spark-rapids-ml/abc-jvm/target/com.example.ml-1.0-SNAPSHOT.jar
 
 $SPARK_HOME/sbin/start-connect-server.sh \
   --master spark://$myip:7077 \
@@ -22,8 +21,6 @@ $SPARK_HOME/sbin/start-connect-server.sh \
   --conf spark.executor.memory=25G \
   --conf spark.executor.cores=1 \
   --conf spark.task.cpus=1 \
-  --conf spark.executor.resource.gpu.amount=1 \
-  --conf spark.task.resource.gpu.amount=1 \
   --jars $CONNECT_JAR,$RAPIDS_ML_jar
 
 tail -f $SPARK_HOME/logs/spark-bobwang-org.apache.spark.sql.connect.service.SparkConnectServer-1-spark-bobby.out

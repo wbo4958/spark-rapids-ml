@@ -3,10 +3,36 @@ from pyspark.ml.classification import (LogisticRegression,
 from pyspark.ml.linalg import Vectors
 from pyspark.sql import SparkSession
 
+from typing import Dict, Any
+
+from pyspark import keyword_only
+from pyspark.ml.wrapper import JavaEstimator, JavaModel
+
+
+class DummyEstimator(JavaEstimator["DummyModel"]):
+    _input_kwargs: Dict[str, Any]
+
+    @keyword_only
+    def __init__(
+        self,
+        **kwargs: Any,
+    ):
+        super().__init__()
+        self._java_obj = self._new_java_obj(
+            "com.example.ml.DummyEstimator", self.uid
+        )
+        self._set(**self._input_kwargs)
+
+    def _create_model(self, java_model: "JavaObject") -> "DummyModel":
+        return DummyModel(java_model)
+
+
+class DummyModel(JavaModel):
+    pass
+
 spark = (SparkSession.builder.remote("sc://localhost")
-         .config("spark.connect.ml.backend.classes", "com.nvidia.rapids.ml.Plugin")
-         .config("spark.rapids.ml.python.transform.enabled", "true")
          .getOrCreate())
+
 
 df = spark.createDataFrame([
         (Vectors.dense([1.0, 2.0]), 1),
@@ -14,9 +40,6 @@ df = spark.createDataFrame([
         (Vectors.dense([-3.0, -2.0]), 0),
         (Vectors.dense([-1.0, -2.0]), 0),
         ], schema=['features', 'label'])
-lr = LogisticRegression(maxIter=19, tol=0.0023)
-model = lr.fit(df)
-print(f"======== model.getMaxIter(): {model.getMaxIter()}")
-print(f"======== model.intercept: {model.intercept}")
-print(f"======== model.coefficients: {model.coefficients}")
+est = DummyEstimator()
+model = est.fit(df)
 model.transform(df).show()

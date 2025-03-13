@@ -23,10 +23,14 @@ import org.apache.spark.sql.{DataFrame, Dataset}
 
 class DummyModel(override val uid: String) extends Model[DummyModel] {
 
+  def this() = this("abcd")
 
   override def copy(extra: ParamMap): DummyModel = this
 
-  override def transform(dataset: Dataset[_]): DataFrame = dataset.toDF()
+  override def transform(dataset: Dataset[_]): DataFrame = {
+    println("--------------------------------------------------------- DummyModel ")
+    dataset.toDF()
+  }
 
   override def transformSchema(schema: StructType): StructType = schema
 }
@@ -42,10 +46,13 @@ class DummyModel(override val uid: String) extends Model[DummyModel] {
  */
 class DummyEstimator(override val uid: String) extends Estimator[DummyModel] {
 
+  def this() = this("abcd")
+
   override def fit(dataset: Dataset[_]): DummyModel = {
-    dataset.rdd.mapPartitions { iter =>
-      iter
-    }.collect()
+    //    dataset.rdd.mapPartitions { iter =>
+    //      iter
+    //    }.collect()
+    println("--------------------------------------------------------- DummyEstimator ")
     new DummyModel(this.uid)
   }
 
