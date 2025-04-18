@@ -92,11 +92,12 @@ class CrossValidator(SparkCrossValidator):
     def _fit(self, dataset: DataFrame) -> "CrossValidatorModel":
         est = self.getOrDefault(self.estimator)
         eva = self.getOrDefault(self.evaluator)
-
+        print("--asdfasfasdfa in _fit")
         # fallback at very early time.
         if not (
             isinstance(est, _CumlEstimator) and est._supportsTransformEvaluate(eva)
         ):
+            print("xxxxxx hhhhh")
             return super()._fit(dataset)
 
         epm = self.getOrDefault(self.estimatorParamMaps)

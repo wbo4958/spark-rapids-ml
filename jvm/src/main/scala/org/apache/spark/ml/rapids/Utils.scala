@@ -19,24 +19,46 @@ package org.apache.spark.ml.rapids
 import java.security.SecureRandom
 import java.util.Base64
 import java.io.File
-
 import scala.collection.mutable.ArrayBuffer
 import scala.jdk.CollectionConverters._
 import scala.sys.process.Process
-
 import py4j.GatewayServer.GatewayServerBuilder
 import org.apache.spark.api.python.SimplePythonFunction
-import org.apache.spark.ml.param.{ParamPair, Params}
+import org.apache.spark.ml.param.{ParamMap, ParamPair, Params}
+import org.apache.spark.util.ArrayImplicits.SparkArrayOps
 import org.apache.spark.util.Utils
+import org.json4s.JString
 import org.json4s.JsonDSL._
 import org.json4s.jackson.JsonMethods.{compact, parse, render}
 
 object RapidsUtils {
 
-  def getUserDefinedParams(instance: Params): String = {
-    compact(render(instance.paramMap.toSeq.map { case ParamPair(p, v) =>
-      p.name -> parse(p.jsonEncode(v))
-    }.toList))
+  def getUserDefinedParams(instance: Params,
+                           skipParams: List[String] = List.empty,
+                           extra: Map[String, String] = Map.empty): String = {
+    compact(render(
+      instance.paramMap.toSeq
+        .filter { case ParamPair(p, _) => !skipParams.contains(p.name) }
+        .map { case ParamPair(p, v) =>
+          p.name -> parse(p.jsonEncode(v))
+        }.toList ++ extra.map { case (k, v) => k -> JString(v) }.toList
+    ))
+  }
+
+  def getEstimatorParamMapsJson(estimatorParamMaps: Array[ParamMap]): String = {
+    compact(render(
+      estimatorParamMaps.map { paramMap =>
+        paramMap.toSeq.map { case ParamPair(p, v) =>
+              Map("parent" -> p.parent, "name" -> p.name, "value" -> p.jsonEncode(v))
+          }
+      }.toImmutableArraySeq
+    ))
+  }
+
+  def getJson(params: Map[String, String] = Map.empty): String = {
+    compact(render(
+      params.map { case (k, v) => k -> parse(v) }.toList
+    ))
   }
 
   def createTempDir(namePrefix: String = "spark"): File = {

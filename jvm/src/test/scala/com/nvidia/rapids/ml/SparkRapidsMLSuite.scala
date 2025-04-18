@@ -16,13 +16,14 @@
 
 package com.nvidia.rapids.ml
 
-import java.io.File
+import org.apache.spark.ml.evaluation.BinaryClassificationEvaluator
 
+import java.io.File
 import org.scalatest.BeforeAndAfterEach
 import org.scalatest.funsuite.AnyFunSuite
-
 import org.apache.spark.ml.linalg.Vectors
 import org.apache.spark.ml.rapids.{RapidsLogisticRegressionModel, RapidsUtils}
+import org.apache.spark.ml.tuning.ParamGridBuilder
 import org.apache.spark.sql.SparkSession
 
 class SparkRapidsMLSuite extends AnyFunSuite with BeforeAndAfterEach {
@@ -60,6 +61,36 @@ class SparkRapidsMLSuite extends AnyFunSuite with BeforeAndAfterEach {
     } finally {
       super.afterEach()
     }
+  }
+
+  test("xxxx") {
+    val df = ss.createDataFrame(
+      Seq(
+        (Vectors.dense(1.0, 2.0), 1.0f),
+        (Vectors.dense(1.0, 3.0), 1.0f),
+        (Vectors.dense(2.0, 1.0), 0.0f),
+        (Vectors.dense(3.0, 1.0), 0.0f))
+    ).toDF("test_feature", "class")
+
+
+    val lr = new RapidsLogisticRegression()
+      .setFeaturesCol("test_feature")
+      .setLabelCol("class")
+
+    val paramGrid = new ParamGridBuilder()
+      .addGrid(lr.maxIter, Array(3, 11))
+      .addGrid(lr.tol, Array(0.03, 0.11))
+      .build()
+
+    val rcv = new RapidsCrossValidator()
+      .setEstimator(lr)
+      .setEvaluator(new BinaryClassificationEvaluator().setLabelCol("class"))
+      .setEstimatorParamMaps(paramGrid)
+      .setNumFolds(2)
+      .setParallelism(5)
+
+    rcv.fit(df)
+
   }
 
   test("RapidsLogisticRegression") {

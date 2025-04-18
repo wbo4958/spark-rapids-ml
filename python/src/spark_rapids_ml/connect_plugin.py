@@ -20,7 +20,7 @@ import faulthandler
 import json
 import os
 import sys
-from typing import IO
+from typing import IO, Any, Dict
 
 import py4j
 from py4j.java_gateway import GatewayParameters, java_import
@@ -116,10 +116,21 @@ def main(infile: IO, outfile: IO) -> None:
         print(f"Running {operator_name} with parameters: {params}")
         params = json.loads(params)
 
-        if operator_name == "LogisticRegression":
-            from .classification import LogisticRegression, LogisticRegressionModel
+        def get_operator(name: str, operator_params: Dict[str, Any]) -> Any:
+            if name == "LogisticRegression":
+                from .classification import LogisticRegression
+                return LogisticRegression(**operator_params)
+            elif name == "BinaryClassificationEvaluator":
+                from pyspark.ml.evaluation import BinaryClassificationEvaluator
+                return BinaryClassificationEvaluator(**operator_params)
+            else:
+                raise RuntimeError(f"Unknown operator: {name}")
 
-            lr = LogisticRegression(**params)
+
+        if operator_name == "LogisticRegression":
+            from .classification import LogisticRegressionModel
+
+            lr = get_operator(operator_name, params)
             model: LogisticRegressionModel = lr.fit(df)
             # if cpu fallback was enabled a pyspark.ml model is returned in which case no need to call cpu()
             model_cpu = (
@@ -143,13 +154,54 @@ def main(infile: IO, outfile: IO) -> None:
         elif operator_name == "LogisticRegressionModel":
             attributes = utf8_deserializer.loads(infile)
             attributes = json.loads(attributes)  # type: ignore[arg-type]
-            from .classification import LogisticRegression, LogisticRegressionModel
+            from .classification import LogisticRegressionModel
 
             lrm = LogisticRegressionModel(*attributes)  # type: ignore[arg-type]
             lrm._set_params(**params)
             transformed_df = lrm.transform(df)
             transformed_df_id = transformed_df._jdf._target_id.encode("utf-8")
             write_with_length(transformed_df_id, outfile)
+
+        elif operator_name == "CrossValidator":
+            uid_to_params = {}
+            estimator_params = params["estimator"]
+            est_uid = estimator_params.pop("uid")
+            estimator = get_operator(estimator_params.pop("estimator_name"), estimator_params)
+            estimator._resetUid(est_uid)
+            uid_to_params[est_uid] = estimator
+
+            evaluator_params = params["evaluator"]
+            eval_uid = evaluator_params.pop("uid")
+            evaluator = get_operator(evaluator_params.pop("evaluator_name"), evaluator_params)
+            evaluator._resetUid(eval_uid)
+
+            estimator_param_maps = []
+            for json_param_map in params["estimatorParaMaps"]:
+                param_map = {}
+                for json_param in json_param_map:
+                    est = uid_to_params[json_param["parent"]]
+                    param = getattr(est, json_param["name"])
+                    value = json_param["value"]
+                    param_map[param] = value
+                estimator_param_maps.append(param_map)
+
+            from .tuning import CrossValidator
+
+            print(f" got ---------- {params["estimatorParaMaps"]}")
+            print(f" got ---------- {estimator_param_maps}")
+            print(f" got estimator {estimator}")
+            print(f" got evaluator {evaluator}")
+            cv = (CrossValidator(**params["cv"])
+                  .setEstimator(estimator)
+                  .setEvaluator(evaluator)
+                  .setEstimatorParamMaps(estimator_param_maps)
+                  )
+
+            print("-------------------- run cv")
+            cv_model = cv.fit(df)
+
+            print(f"Running {operator_name} with parameters: {estimator_params}")
+            pass
         else:
             raise RuntimeError(f"Unsupported estimator: {operator_name}")
 
