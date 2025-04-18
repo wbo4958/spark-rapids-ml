@@ -20,7 +20,7 @@ import faulthandler
 import json
 import os
 import sys
-from typing import IO
+from typing import IO, Any, Dict
 
 import py4j
 from py4j.java_gateway import GatewayParameters, java_import
@@ -116,10 +116,24 @@ def main(infile: IO, outfile: IO) -> None:
         print(f"Running {operator_name} with parameters: {params}")
         params = json.loads(params)
 
-        if operator_name == "LogisticRegression":
-            from .classification import LogisticRegression, LogisticRegressionModel
+        def get_operator(name: str, operator_params: Dict[str, Any]) -> Any:
+            if (name == "LogisticRegression" or
+                    name == "com.nvidia.rapids.ml.RapidsLogisticRegression"):
+                from .classification import LogisticRegression
+                return LogisticRegression(**operator_params)
+            elif "BinaryClassificationEvaluator" in name:
+                from pyspark.ml.evaluation import BinaryClassificationEvaluator
+                return BinaryClassificationEvaluator(**operator_params)
+            elif "MulticlassClassificationEvaluator" in name:
+                from pyspark.ml.evaluation import MulticlassClassificationEvaluator
+                return MulticlassClassificationEvaluator(**operator_params)
+            else:
+                raise RuntimeError(f"Unknown operator: {name}")
 
-            lr = LogisticRegression(**params)
+        if operator_name == "LogisticRegression":
+            from .classification import LogisticRegressionModel
+
+            lr = get_operator(operator_name, params)
             model: LogisticRegressionModel = lr.fit(df)
             # if cpu fallback was enabled a pyspark.ml model is returned in which case no need to call cpu()
             model_cpu = (
@@ -143,17 +157,61 @@ def main(infile: IO, outfile: IO) -> None:
         elif operator_name == "LogisticRegressionModel":
             attributes = utf8_deserializer.loads(infile)
             attributes = json.loads(attributes)  # type: ignore[arg-type]
-            from .classification import LogisticRegression, LogisticRegressionModel
+            from .classification import LogisticRegressionModel
 
             lrm = LogisticRegressionModel(*attributes)  # type: ignore[arg-type]
             lrm._set_params(**params)
             transformed_df = lrm.transform(df)
             transformed_df_id = transformed_df._jdf._target_id.encode("utf-8")
             write_with_length(transformed_df_id, outfile)
+
+        elif operator_name == "CrossValidator":
+            uid_to_params = {}
+            est_params = params["estimator"]
+            est_uid = est_params.pop("uid")
+            est_name = est_params.pop("estimator_name")
+            print(f"CrossValidator, Estimator: {est_name} - {est_uid} -- {est_params}")
+            estimator = get_operator(est_name, est_params)
+            estimator._resetUid(est_uid)
+
+            uid_to_params[est_uid] = estimator
+
+            eval_params = params["evaluator"]
+            eval_uid = eval_params.pop("uid")
+            eval_name = eval_params.pop("evaluator_name")
+            evaluator = get_operator(eval_name, eval_params)
+            evaluator._resetUid(eval_uid)
+
+            estimator_param_maps = []
+            for json_param_map in params["estimatorParaMaps"]:
+                param_map = {}
+                for json_param in json_param_map:
+                    est = uid_to_params[json_param["parent"]]
+                    p = getattr(est, json_param["name"])
+                    value = json_param["value"]
+                    try:
+                        param_map[p] = p.typeConverter(value)
+                    except TypeError as e:
+                        raise TypeError(f"Invalid param value given for param {p.name}, {e}")
+                estimator_param_maps.append(param_map)
+
+            from .tuning import CrossValidator
+            cv = (
+                CrossValidator(**params["cv"])
+                .setEstimator(estimator)
+                .setEvaluator(evaluator)
+                .setEstimatorParamMaps(estimator_param_maps)
+            )
+
+            cv_model = cv.fit(df)
+
+            print(f"Running {operator_name} with parameters: {est_name}")
+            pass
         else:
             raise RuntimeError(f"Unsupported estimator: {operator_name}")
 
     except BaseException as e:
+        print(f"Spark-rapids-ml connect plugin Exception : {e}")
         handle_worker_exception(e, outfile)
         sys.exit(-1)
     finally:
