@@ -117,15 +117,18 @@ def main(infile: IO, outfile: IO) -> None:
         params = json.loads(params)
 
         def get_operator(name: str, operator_params: Dict[str, Any]) -> Any:
-            if name == "LogisticRegression":
+            if (name == "LogisticRegression" or
+                    name == "com.nvidia.rapids.ml.RapidsLogisticRegression"):
                 from .classification import LogisticRegression
                 return LogisticRegression(**operator_params)
-            elif name == "BinaryClassificationEvaluator":
+            elif "BinaryClassificationEvaluator" in name:
                 from pyspark.ml.evaluation import BinaryClassificationEvaluator
                 return BinaryClassificationEvaluator(**operator_params)
+            elif "MulticlassClassificationEvaluator" in name:
+                from pyspark.ml.evaluation import MulticlassClassificationEvaluator
+                return MulticlassClassificationEvaluator(**operator_params)
             else:
                 raise RuntimeError(f"Unknown operator: {name}")
-
 
         if operator_name == "LogisticRegression":
             from .classification import LogisticRegressionModel
@@ -164,15 +167,20 @@ def main(infile: IO, outfile: IO) -> None:
 
         elif operator_name == "CrossValidator":
             uid_to_params = {}
-            estimator_params = params["estimator"]
-            est_uid = estimator_params.pop("uid")
-            estimator = get_operator(estimator_params.pop("estimator_name"), estimator_params)
+            est_params = params["estimator"]
+            est_uid = est_params.pop("uid")
+            est_name = est_params.pop("estimator_name")
+            print(f"CrossValidator, Estimator: {est_name} - {est_uid} -- {est_params}")
+            estimator = get_operator(est_name, est_params)
             estimator._resetUid(est_uid)
+
             uid_to_params[est_uid] = estimator
 
-            evaluator_params = params["evaluator"]
-            eval_uid = evaluator_params.pop("uid")
-            evaluator = get_operator(evaluator_params.pop("evaluator_name"), evaluator_params)
+            eval_params = params["evaluator"]
+            eval_uid = eval_params.pop("uid")
+            eval_name = eval_params.pop("evaluator_name")
+            print(f"CrossValidator, Evaluator: {eval_name} - {eval_uid} -- {eval_params}")
+            evaluator = get_operator(eval_name, eval_params)
             evaluator._resetUid(eval_uid)
 
             estimator_param_maps = []
@@ -187,10 +195,6 @@ def main(infile: IO, outfile: IO) -> None:
 
             from .tuning import CrossValidator
 
-            print(f" got ---------- {params["estimatorParaMaps"]}")
-            print(f" got ---------- {estimator_param_maps}")
-            print(f" got estimator {estimator}")
-            print(f" got evaluator {evaluator}")
             cv = (CrossValidator(**params["cv"])
                   .setEstimator(estimator)
                   .setEvaluator(evaluator)
@@ -200,7 +204,7 @@ def main(infile: IO, outfile: IO) -> None:
             print("-------------------- run cv")
             cv_model = cv.fit(df)
 
-            print(f"Running {operator_name} with parameters: {estimator_params}")
+            print(f"Running {operator_name} with parameters: {est_name}")
             pass
         else:
             raise RuntimeError(f"Unsupported estimator: {operator_name}")

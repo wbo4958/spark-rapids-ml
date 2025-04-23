@@ -2,7 +2,7 @@ package com.nvidia.rapids.ml
 
 import org.sparkproject.connect.protobuf.Any
 import org.apache.commons.logging.LogFactory
-import org.apache.spark.sql.connect.ml.ConnectUtils
+//import org.apache.spark.sql.connect.ml.ConnectUtils
 import org.apache.spark.sql.connect.planner.SparkConnectPlanner
 import org.apache.spark.sql.connect.plugin.CommandPlugin
 
@@ -24,7 +24,7 @@ class RapidsCommandPlugin extends CommandPlugin {
     val cmdProto = Any.parseFrom(bytes)
     logger.warn("--adf-asd-fads-fa-sdf-asdf-ad-fa-df!")
 
-    ConnectUtils.responseModelId(sparkConnectPlanner)
+//    ConnectUtils.responseModelId(sparkConnectPlanner)
     true
   }
 }

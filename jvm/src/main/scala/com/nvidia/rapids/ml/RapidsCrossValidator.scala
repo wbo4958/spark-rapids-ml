@@ -5,7 +5,6 @@ import org.apache.spark.ml.rapids.{Fit, PythonEstimatorRunner, RapidsUtils, Trai
 import org.apache.spark.ml.tuning.{CrossValidator, CrossValidatorModel}
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.sql.Dataset
-import org.json4s.jackson.JsonMethods.{compact, parse, render}
 
 class RapidsCrossValidator(override val uid: String) extends CrossValidator with RapidsEstimator {
 
@@ -26,14 +25,23 @@ class RapidsCrossValidator(override val uid: String) extends CrossValidator with
   override def trainOnPython(dataset: Dataset[_]): TrainedModel = {
     logger.info(s"Training $name ...")
 
+    def getName(name: String): String = {
+      Utils.transform(name).getOrElse(name)
+    }
+
     // TODO estimator could be a PipeLine which contains multiple stages.
     val cvParams = RapidsUtils.getJson(Map(
       "estimator" -> RapidsUtils.getUserDefinedParams(getEstimator,
-        extra = Map("estimator_name" -> "LogisticRegression", "uid" -> getEstimator.uid)),
+        extra = Map(
+          "estimator_name" -> getName(getEstimator.getClass.getName),
+          "uid" -> getEstimator.uid)),
       "evaluator" -> RapidsUtils.getUserDefinedParams(getEvaluator,
-        extra = Map("evaluator_name" -> "BinaryClassificationEvaluator", "uid" -> getEvaluator.uid)),
+        extra = Map(
+          "evaluator_name" -> getName(getEvaluator.getClass.getName),
+          "uid" -> getEvaluator.uid)),
       "estimatorParaMaps" -> RapidsUtils.getEstimatorParamMapsJson(getEstimatorParamMaps),
-      "cv" -> RapidsUtils.getUserDefinedParams(this, List("estimator", "evaluator", "estimatorParamMaps"))
+      "cv" -> RapidsUtils.getUserDefinedParams(this,
+        List("estimator", "evaluator", "estimatorParamMaps"))
     ))
 
     val runner = new PythonEstimatorRunner(

@@ -16,7 +16,7 @@
 
 package com.nvidia.rapids.ml
 
-import org.apache.spark.ml.evaluation.BinaryClassificationEvaluator
+import org.apache.spark.ml.evaluation.MulticlassClassificationEvaluator
 
 import java.io.File
 import org.scalatest.BeforeAndAfterEach
@@ -84,12 +84,12 @@ class SparkRapidsMLSuite extends AnyFunSuite with BeforeAndAfterEach {
 
     val rcv = new RapidsCrossValidator()
       .setEstimator(lr)
-      .setEvaluator(new BinaryClassificationEvaluator().setLabelCol("class"))
+      .setEvaluator(new MulticlassClassificationEvaluator().setLabelCol("class"))
       .setEstimatorParamMaps(paramGrid)
       .setNumFolds(2)
       .setParallelism(5)
 
-    rcv.fit(df)
+    val model = rcv.fit(df)
 
   }
 
