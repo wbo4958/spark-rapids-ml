@@ -92,22 +92,25 @@ class CrossValidator(SparkCrossValidator):
     def _fit(self, dataset: DataFrame) -> "CrossValidatorModel":
         est = self.getOrDefault(self.estimator)
         eva = self.getOrDefault(self.evaluator)
-        print("--asdfasfasdfa in _fit")
         # fallback at very early time.
+        print("CrossValidator -1")
         if not (
             isinstance(est, _CumlEstimator) and est._supportsTransformEvaluate(eva)
         ):
-            print("xxxxxx hhhhh")
             return super()._fit(dataset)
-
+        print("CrossValidator 0")
         epm = self.getOrDefault(self.estimatorParamMaps)
         # fallback if any params are not gpu supported
-        for param_map in epm:
-            est_tmp = est.copy(param_map)
-            if est_tmp._fallback_enabled and est_tmp._use_cpu_fallback():
-                logger = get_logger(self.__class__)
-                logger.warning("Falling back to CPU CrossValidator fit().")
-                return super()._fit(dataset)
+        # for param_map in epm:
+        #     print(f"CrossValidator param_map: {param_map}")
+        #     est_tmp = est.copy(param_map)
+        #     print(f"CrossValidator after copy")
+        #     if est_tmp._fallback_enabled and est_tmp._use_cpu_fallback():
+        #         logger = get_logger(self.__class__)
+        #         logger.warning("Falling back to CPU CrossValidator fit().")
+        #         print("fall back to cpu")
+        #         return super()._fit(dataset)
+        print("CrossValidator 00-1")
 
         numModels = len(epm)
         nFolds = self.getOrDefault(self.numFolds)
@@ -120,6 +123,12 @@ class CrossValidator(SparkCrossValidator):
             subModels = [[None for j in range(numModels)] for i in range(nFolds)]
 
         datasets = self._kFold(dataset)
+        print("CrossValidator 1")
+        for x in datasets:
+            print("------ 1")
+            x[0].show()
+            print("------ 2")
+            x[1].show()
 
         def singePassTask(
             fold: int,

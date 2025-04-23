@@ -1407,7 +1407,7 @@ class _CumlModel(Model, _CumlParams, _CumlCommon):
         concate_pdf_batches = self._concate_pdf_batches()
 
         cuda_managed_mem_enabled = (
-            _get_spark_session().conf.get("spark.rapids.ml.uvm.enabled", "false")
+            _get_spark_session().conf.gasdfasfasdfa in _fitet("spark.rapids.ml.uvm.enabled", "false")
             == "true"
         )
         if cuda_managed_mem_enabled:

@@ -16,7 +16,9 @@
 
 package com.nvidia.rapids.ml
 
+import org.apache.spark.ml.classification.LogisticRegression
 import org.apache.spark.ml.evaluation.MulticlassClassificationEvaluator
+import org.apache.spark.ml.feature.LabeledPoint
 
 import java.io.File
 import org.scalatest.BeforeAndAfterEach
@@ -25,6 +27,9 @@ import org.apache.spark.ml.linalg.Vectors
 import org.apache.spark.ml.rapids.{RapidsLogisticRegressionModel, RapidsUtils}
 import org.apache.spark.ml.tuning.ParamGridBuilder
 import org.apache.spark.sql.SparkSession
+import org.apache.spark.sql.functions.{col, rand, when}
+
+import scala.util.Random
 
 class SparkRapidsMLSuite extends AnyFunSuite with BeforeAndAfterEach {
   @transient var ss: SparkSession = _
@@ -63,19 +68,40 @@ class SparkRapidsMLSuite extends AnyFunSuite with BeforeAndAfterEach {
     }
   }
 
+  private def generateLogisticInput(
+                                     offset: Double,
+                                     scale: Double,
+                                     nPoints: Int,
+                                     seed: Int): Seq[LabeledPoint] = {
+    val rnd = new Random(seed)
+    val x1 = Array.fill[Double](nPoints)(rnd.nextGaussian())
+
+    val y = (0 until nPoints).map { i =>
+      val p = 1.0 / (1.0 + math.exp(-(offset + scale * x1(i))))
+      if (rnd.nextDouble() < p) 1.0 else 0.0
+    }
+
+    val testData = (0 until nPoints).map(i => LabeledPoint(y(i), Vectors.dense(Array(x1(i)))))
+    testData
+  }
+
   test("xxxx") {
-    val df = ss.createDataFrame(
-      Seq(
-        (Vectors.dense(1.0, 2.0), 1.0f),
-        (Vectors.dense(1.0, 3.0), 1.0f),
-        (Vectors.dense(2.0, 1.0), 0.0f),
-        (Vectors.dense(3.0, 1.0), 0.0f))
-    ).toDF("test_feature", "class")
+    val spark = ss
+    import spark.implicits._
+    val dataset = ss.sparkContext.parallelize(generateLogisticInput(1.0, 1.0, 100, 42), 2)
+      .toDF("test_label", "test_features")
+    val dfWithRandom = dataset.repartition(1).withColumn("random", rand(100L))
+    val foldCol = when(col("random") < 0.33, 0).when(col("random") < 0.66, 1).otherwise(2)
+    val datasetWithFold = dfWithRandom.withColumn("fold", foldCol).drop("random").repartition(2)
 
+    dataset.printSchema()
+//    dataset.show(10, false)
+    dfWithRandom.printSchema()
+    datasetWithFold.printSchema()
 
-    val lr = new RapidsLogisticRegression()
-      .setFeaturesCol("test_feature")
-      .setLabelCol("class")
+    val lr = new LogisticRegression()
+      .setFeaturesCol("test_features")
+      .setLabelCol("test_label")
 
     val paramGrid = new ParamGridBuilder()
       .addGrid(lr.maxIter, Array(3, 11))
@@ -84,12 +110,12 @@ class SparkRapidsMLSuite extends AnyFunSuite with BeforeAndAfterEach {
 
     val rcv = new RapidsCrossValidator()
       .setEstimator(lr)
-      .setEvaluator(new MulticlassClassificationEvaluator().setLabelCol("class"))
+      .setEvaluator(new MulticlassClassificationEvaluator().setLabelCol("test_label"))
       .setEstimatorParamMaps(paramGrid)
-      .setNumFolds(2)
-      .setParallelism(5)
+      .setNumFolds(3)
+      .setParallelism(1)
 
-    val model = rcv.fit(df)
+    val model = rcv.fit(dfWithRandom)
 
   }
 
