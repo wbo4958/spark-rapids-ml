@@ -26,6 +26,7 @@ import py4j
 from py4j.java_gateway import GatewayParameters, java_import
 from pyspark import SparkConf, SparkContext
 from pyspark.accumulators import _accumulatorRegistry
+from pyspark.ml import Model
 from pyspark.serializers import (
     SpecialLengths,
     UTF8Deserializer,
@@ -46,6 +47,8 @@ from pyspark.worker_util import (
     check_python_version,
 )
 
+from .classification import LogisticRegressionModel
+
 utf8_deserializer = UTF8Deserializer()
 
 
@@ -64,6 +67,44 @@ def _java_import(gateway) -> None:  # type: ignore[no-untyped-def]
     java_import(gateway.jvm, "org.apache.spark.sql.hive.*")
     java_import(gateway.jvm, "scala.Tuple2")
 
+
+def get_operator(name: str, operator_params: Dict[str, Any]) -> Any:
+    if (name == "LogisticRegression" or
+            name == "com.nvidia.rapids.ml.RapidsLogisticRegression"):
+        from .classification import LogisticRegression
+        return LogisticRegression(**operator_params)
+    elif "BinaryClassificationEvaluator" in name:
+        from pyspark.ml.evaluation import BinaryClassificationEvaluator
+        return BinaryClassificationEvaluator(**operator_params)
+    elif "MulticlassClassificationEvaluator" in name:
+        from pyspark.ml.evaluation import MulticlassClassificationEvaluator
+        return MulticlassClassificationEvaluator(**operator_params)
+    else:
+        raise RuntimeError(f"Unknown operator: {name}")
+
+
+def send_back_model(name: str, model: Model, outfile: IO) -> None:
+    if name == "LogisticRegressionModel":
+        # if cpu fallback was enabled a pyspark.ml model is returned in which case no need to call cpu()
+        model_cpu = (
+            model.cpu() if isinstance(model, LogisticRegressionModel) else model
+        )
+        assert model_cpu._java_obj is not None
+        model_target_id = model_cpu._java_obj._get_object_id().encode("utf-8")
+        write_with_length(model_target_id, outfile)
+        # Model attributes
+        attributes = [
+            model.coef_,
+            model.intercept_,
+            model.classes_,
+            model.n_cols,
+            model.dtype,
+            model.num_iters,
+            model.objective,
+        ]
+        write_with_length(json.dumps(attributes).encode("utf-8"), outfile)
+    else:
+        raise ValueError(f"Not supported model {name}")
 
 def main(infile: IO, outfile: IO) -> None:
     """
@@ -116,43 +157,10 @@ def main(infile: IO, outfile: IO) -> None:
         print(f"Running {operator_name} with parameters: {params}")
         params = json.loads(params)
 
-        def get_operator(name: str, operator_params: Dict[str, Any]) -> Any:
-            if (name == "LogisticRegression" or
-                    name == "com.nvidia.rapids.ml.RapidsLogisticRegression"):
-                from .classification import LogisticRegression
-                return LogisticRegression(**operator_params)
-            elif "BinaryClassificationEvaluator" in name:
-                from pyspark.ml.evaluation import BinaryClassificationEvaluator
-                return BinaryClassificationEvaluator(**operator_params)
-            elif "MulticlassClassificationEvaluator" in name:
-                from pyspark.ml.evaluation import MulticlassClassificationEvaluator
-                return MulticlassClassificationEvaluator(**operator_params)
-            else:
-                raise RuntimeError(f"Unknown operator: {name}")
-
         if operator_name == "LogisticRegression":
-            from .classification import LogisticRegressionModel
-
             lr = get_operator(operator_name, params)
-            model: LogisticRegressionModel = lr.fit(df)
-            # if cpu fallback was enabled a pyspark.ml model is returned in which case no need to call cpu()
-            model_cpu = (
-                model.cpu() if isinstance(model, LogisticRegressionModel) else model
-            )
-            assert model_cpu._java_obj is not None
-            model_target_id = model_cpu._java_obj._get_object_id().encode("utf-8")
-            write_with_length(model_target_id, outfile)
-            # Model attributes
-            attributes = [
-                model.coef_,
-                model.intercept_,
-                model.classes_,
-                model.n_cols,
-                model.dtype,
-                model.num_iters,
-                model.objective,
-            ]
-            write_with_length(json.dumps(attributes).encode("utf-8"), outfile)
+            model = lr.fit(df)
+            send_back_model("LogisticRegressionModel", model, outfile)
 
         elif operator_name == "LogisticRegressionModel":
             attributes = utf8_deserializer.loads(infile)
@@ -204,9 +212,7 @@ def main(infile: IO, outfile: IO) -> None:
             )
 
             cv_model = cv.fit(df)
-
-            print(f"Running {operator_name} with parameters: {est_name}")
-            pass
+            send_back_model("LogisticRegressionModel", cv_model.bestModel, outfile)
         else:
             raise RuntimeError(f"Unsupported estimator: {operator_name}")
 

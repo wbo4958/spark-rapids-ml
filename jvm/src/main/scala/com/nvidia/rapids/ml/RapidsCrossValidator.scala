@@ -1,7 +1,7 @@
 package com.nvidia.rapids.ml
 
-import org.apache.spark.ml.param.ParamPair
-import org.apache.spark.ml.rapids.{Fit, PythonEstimatorRunner, RapidsUtils, TrainedModel}
+import org.apache.spark.ml.classification.LogisticRegressionModel
+import org.apache.spark.ml.rapids.{Fit, PythonEstimatorRunner, RapidsLogisticRegressionModel, RapidsUtils, TrainedModel}
 import org.apache.spark.ml.tuning.{CrossValidator, CrossValidatorModel}
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.sql.Dataset
@@ -12,7 +12,12 @@ class RapidsCrossValidator(override val uid: String) extends CrossValidator with
 
   override def fit(dataset: Dataset[_]): CrossValidatorModel = {
     val trainedModel = trainOnPython(dataset)
-    null
+
+    val cpuModel = copyValues(trainedModel.model.asInstanceOf[LogisticRegressionModel])
+    val isMultinomial = cpuModel.numClasses != 2
+    val rlr = new RapidsLogisticRegressionModel(uid, cpuModel, trainedModel.modelAttributes, isMultinomial)
+    rlr.setFeaturesCol("test_feature")
+    RapidsUtils.createCrossValidatorModel(this.uid, rlr)
   }
 
   /**
@@ -29,11 +34,12 @@ class RapidsCrossValidator(override val uid: String) extends CrossValidator with
       Utils.transform(name).getOrElse(name)
     }
 
+    val estimatorName = getName(getEstimator.getClass.getName)
     // TODO estimator could be a PipeLine which contains multiple stages.
     val cvParams = RapidsUtils.getJson(Map(
       "estimator" -> RapidsUtils.getUserDefinedParams(getEstimator,
         extra = Map(
-          "estimator_name" -> getName(getEstimator.getClass.getName),
+          "estimator_name" -> estimatorName,
           "uid" -> getEstimator.uid)),
       "evaluator" -> RapidsUtils.getUserDefinedParams(getEvaluator,
         extra = Map(

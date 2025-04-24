@@ -111,6 +111,7 @@ class SparkRapidsMLSuite extends AnyFunSuite with BeforeAndAfterEach {
       .setParallelism(1)
 
     val model = rcv.fit(dfWithRandom)
+    model.transform(dfWithRandom).show()
 
   }
 

@@ -24,7 +24,9 @@ import scala.jdk.CollectionConverters._
 import scala.sys.process.Process
 import py4j.GatewayServer.GatewayServerBuilder
 import org.apache.spark.api.python.SimplePythonFunction
+import org.apache.spark.ml.Model
 import org.apache.spark.ml.param.{ParamMap, ParamPair, Params}
+import org.apache.spark.ml.tuning.CrossValidatorModel
 import org.apache.spark.util.ArrayImplicits.SparkArrayOps
 import org.apache.spark.util.Utils
 import org.json4s.JString
@@ -32,6 +34,10 @@ import org.json4s.JsonDSL._
 import org.json4s.jackson.JsonMethods.{compact, parse, render}
 
 object RapidsUtils {
+
+  def createCrossValidatorModel(uid: String, model: Model[_]): CrossValidatorModel = {
+    new CrossValidatorModel(uid, model, Array.empty[Double])
+  }
 
   def getUserDefinedParams(instance: Params,
                            skipParams: List[String] = List.empty,
