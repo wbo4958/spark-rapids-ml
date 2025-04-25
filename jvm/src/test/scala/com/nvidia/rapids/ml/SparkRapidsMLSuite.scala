@@ -68,11 +68,10 @@ class SparkRapidsMLSuite extends AnyFunSuite with BeforeAndAfterEach {
     }
   }
 
-  private def generateLogisticInput(
-                                     offset: Double,
-                                     scale: Double,
-                                     nPoints: Int,
-                                     seed: Int): Seq[LabeledPoint] = {
+  private def generateLogisticInput(offset: Double,
+                                    scale: Double,
+                                    nPoints: Int,
+                                    seed: Int): Seq[LabeledPoint] = {
     val rnd = new Random(seed)
     val x1 = Array.fill[Double](nPoints)(rnd.nextGaussian())
 
@@ -107,10 +106,15 @@ class SparkRapidsMLSuite extends AnyFunSuite with BeforeAndAfterEach {
       .setEstimator(lr)
       .setEvaluator(new MulticlassClassificationEvaluator().setLabelCol("test_label"))
       .setEstimatorParamMaps(paramGrid)
-      .setNumFolds(3)
-      .setParallelism(1)
+      .setNumFolds(2)
+      .setParallelism(2)
 
     val model = rcv.fit(dfWithRandom)
+    assert(model.bestModel.isInstanceOf[RapidsLogisticRegressionModel])
+    val rlrm = model.bestModel.asInstanceOf[RapidsLogisticRegressionModel]
+    assert(rlrm.getFeaturesCol == "test_feature")
+    assert(rlrm.getLabelCol == "test_label")
+    assert(model.getNumFolds == 2)
     model.transform(dfWithRandom).show()
 
   }
