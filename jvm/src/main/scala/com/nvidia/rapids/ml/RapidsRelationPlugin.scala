@@ -16,6 +16,7 @@
 
 package com.nvidia.rapids.ml
 
+import com.nvidia.rapids.ml
 import org.apache.commons.logging.LogFactory
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.Row
@@ -25,6 +26,7 @@ import org.apache.spark.connect.{proto => sparkProto}
 import org.apache.spark.ml.Estimator
 import org.apache.spark.ml.evaluation.{Evaluator, MulticlassClassificationEvaluator}
 import org.apache.spark.ml.rapids.RapidsUtils
+import org.apache.spark.ml.tuning.ParamGridBuilder
 import org.apache.spark.sql.rapids.Utils
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
 import org.json4s._
@@ -58,6 +60,7 @@ class RapidsRelationPlugin extends RelationPlugin {
         estimator = Some(new RapidsLogisticRegression(uid = estProto.getUid))
         val estParams = estProto.getParams
         RapidsUtils.setParams(estimator.get, estParams)
+
       }
       val evalProto = cvProto.getEvaluator
       var evaluator: Option[Evaluator] = None
@@ -69,9 +72,14 @@ class RapidsRelationPlugin extends RelationPlugin {
 
       val cv = new RapidsCrossValidator(uid = "xx")
       RapidsUtils.setParams(cv, cvProto.getParams)
-      cv.setEstimator(estimator.get).setEvaluator(evaluator.get)
 
-      dataset.show()
+      val paramGrid = new ParamGridBuilder()
+        .addGrid(estimator.get.asInstanceOf[ml.RapidsLogisticRegression].maxIter, Array(3, 11))
+        .build()
+      cv.setEstimator(estimator.get).setEvaluator(evaluator.get).setEstimatorParamMaps(paramGrid)
+
+      val cvModel = cv.fit(dataset)
+
       val resultDf = sparkSession.createDataFrame(
         List(Row("123456_model_id")).asJava,
         StructType(Seq(StructField("model_id", StringType))))
