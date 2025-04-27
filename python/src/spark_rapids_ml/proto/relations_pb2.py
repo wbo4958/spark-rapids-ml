@@ -24,7 +24,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0frelations.proto\x12\x1a\x63om.nvidia.rapids.ml.proto\"g\n\x0eTuningRelation\x12\x44\n\x02\x63v\x18\x01 \x01(\x0b\x32\x32.com.nvidia.rapids.ml.proto.CrossValidatorRelationH\x00R\x02\x63vB\x0f\n\rrelation_type\"\xcf\x01\n\x16\x43rossValidatorRelation\x12\x44\n\testimator\x18\x01 \x01(\x0b\x32&.com.nvidia.rapids.ml.proto.MlOperatorR\testimator\x12\x44\n\tevaluator\x18\x02 \x01(\x0b\x32&.com.nvidia.rapids.ml.proto.MlOperatorR\tevaluator\x12\x1d\n\x07\x64\x61taset\x18\x03 \x01(\x0cH\x00R\x07\x64\x61taset\x88\x01\x01\x42\n\n\x08_dataset\"\x9d\x02\n\nMlOperator\x12\x12\n\x04name\x18\x01 \x01(\tR\x04name\x12\x10\n\x03uid\x18\x02 \x01(\tR\x03uid\x12G\n\x04type\x18\x03 \x01(\x0e\x32\x33.com.nvidia.rapids.ml.proto.MlOperator.OperatorTypeR\x04type\"\x9f\x01\n\x0cOperatorType\x12\x1d\n\x19OPERATOR_TYPE_UNSPECIFIED\x10\x00\x12\x1b\n\x17OPERATOR_TYPE_ESTIMATOR\x10\x01\x12\x1d\n\x19OPERATOR_TYPE_TRANSFORMER\x10\x02\x12\x1b\n\x17OPERATOR_TYPE_EVALUATOR\x10\x03\x12\x17\n\x13OPERATOR_TYPE_MODEL\x10\x04\x42!\n\x1a\x63om.nvidia.rapids.ml.protoP\x01\xa0\x01\x01\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0frelations.proto\x12\x1a\x63om.nvidia.rapids.ml.proto\"g\n\x0eTuningRelation\x12\x44\n\x02\x63v\x18\x01 \x01(\x0b\x32\x32.com.nvidia.rapids.ml.proto.CrossValidatorRelationH\x00R\x02\x63vB\x0f\n\rrelation_type\"\xf7\x01\n\x16\x43rossValidatorRelation\x12\x44\n\testimator\x18\x01 \x01(\x0b\x32&.com.nvidia.rapids.ml.proto.MlOperatorR\testimator\x12\x44\n\tevaluator\x18\x02 \x01(\x0b\x32&.com.nvidia.rapids.ml.proto.MlOperatorR\tevaluator\x12\x1b\n\x06params\x18\x03 \x01(\tH\x00R\x06params\x88\x01\x01\x12\x1d\n\x07\x64\x61taset\x18\x04 \x01(\x0cH\x01R\x07\x64\x61taset\x88\x01\x01\x42\t\n\x07_paramsB\n\n\x08_dataset\"\xc5\x02\n\nMlOperator\x12\x12\n\x04name\x18\x01 \x01(\tR\x04name\x12\x10\n\x03uid\x18\x02 \x01(\tR\x03uid\x12G\n\x04type\x18\x03 \x01(\x0e\x32\x33.com.nvidia.rapids.ml.proto.MlOperator.OperatorTypeR\x04type\x12\x1b\n\x06params\x18\x04 \x01(\tH\x00R\x06params\x88\x01\x01\"\x9f\x01\n\x0cOperatorType\x12\x1d\n\x19OPERATOR_TYPE_UNSPECIFIED\x10\x00\x12\x1b\n\x17OPERATOR_TYPE_ESTIMATOR\x10\x01\x12\x1d\n\x19OPERATOR_TYPE_TRANSFORMER\x10\x02\x12\x1b\n\x17OPERATOR_TYPE_EVALUATOR\x10\x03\x12\x17\n\x13OPERATOR_TYPE_MODEL\x10\x04\x42\t\n\x07_paramsB!\n\x1a\x63om.nvidia.rapids.ml.protoP\x01\xa0\x01\x01\x62\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -35,9 +35,9 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_TUNINGRELATION']._serialized_start=47
   _globals['_TUNINGRELATION']._serialized_end=150
   _globals['_CROSSVALIDATORRELATION']._serialized_start=153
-  _globals['_CROSSVALIDATORRELATION']._serialized_end=360
-  _globals['_MLOPERATOR']._serialized_start=363
-  _globals['_MLOPERATOR']._serialized_end=648
-  _globals['_MLOPERATOR_OPERATORTYPE']._serialized_start=489
-  _globals['_MLOPERATOR_OPERATORTYPE']._serialized_end=648
+  _globals['_CROSSVALIDATORRELATION']._serialized_end=400
+  _globals['_MLOPERATOR']._serialized_start=403
+  _globals['_MLOPERATOR']._serialized_end=728
+  _globals['_MLOPERATOR_OPERATORTYPE']._serialized_start=558
+  _globals['_MLOPERATOR_OPERATORTYPE']._serialized_end=717
 # @@protoc_insertion_point(module_scope)

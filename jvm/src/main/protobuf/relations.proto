@@ -15,10 +15,14 @@ message TuningRelation {
 }
 
 message CrossValidatorRelation {
+  // (Required) the estimator info
   MlOperator estimator = 1;
+  // (Required) the evaluator info
   MlOperator evaluator = 2;
+  // parameters of CrossValidator
+  optional string params = 3;
   // Can't use Relation directly due to shading issue in spark connect
-  optional bytes dataset = 3;
+  optional bytes dataset = 4;
 }
 
 // MLOperator represents the ML operators like (Estimator, Transformer or Evaluator)
@@ -32,6 +36,9 @@ message MlOperator {
   // (Required) Represents what the ML operator is
   OperatorType type = 3;
 
+  // (Optional) parameters of the operator which is a json string
+  optional string params = 4;
+
   enum OperatorType {
     OPERATOR_TYPE_UNSPECIFIED = 0;
     // ML estimator
@@ -43,4 +50,5 @@ message MlOperator {
     // ML model
     OPERATOR_TYPE_MODEL = 4;
   }
+
 }

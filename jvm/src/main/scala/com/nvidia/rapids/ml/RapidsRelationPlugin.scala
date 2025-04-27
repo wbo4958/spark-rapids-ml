@@ -44,6 +44,19 @@ class RapidsRelationPlugin extends RelationPlugin {
       val dataset = Utils.ofRows(sparkSession,
         sparkConnectPlanner.transformRelation(dataLogicalPlan.getRoot))
 
+      val cvParams = cvProto.getParams
+
+      val estProto = cvProto.getEstimator
+      if (estProto.getName == "LogisticRegression") {
+        val estimator = new RapidsLogisticRegression(uid = estProto.getUid)
+        val estParmas = estProto.getParams
+
+      }
+      val evaluator = cvProto.getEvaluator
+
+
+
+
       dataset.show()
       val resultDf = sparkSession.createDataFrame(
         List(Row("123456_model_id")).asJava,

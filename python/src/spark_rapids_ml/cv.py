@@ -1,11 +1,13 @@
 from typing import Union, Any
 
 from pyspark.ml import Estimator
+from pyspark.ml.param import Params
 from pyspark.ml.param.shared import HasParallelism, HasCollectSubModels
 from pyspark.ml.tuning import _CrossValidatorParams
 from pyspark.sql import DataFrame
 from pyspark.sql.connect import proto as proto
 from pyspark.sql.connect.plan import LogicalPlan
+from pyspark.ml.tuning import CrossValidator as SparkCrossValidator
 
 import spark_rapids_ml.proto as rapids_pb
 
@@ -22,29 +24,37 @@ class CrossValidatorPlan(LogicalPlan):
         return plan
 
 
-class CrossValidator(
-    Estimator,
-    _CrossValidatorParams,
-    HasParallelism,
-    HasCollectSubModels,
-):
+def extractParams(instance: "Params") -> str:
+    params = {}
+    # TODO: support vector/matrix
+    for k, v in instance._paramMap.items():
+        if instance.isSet(k) and isinstance(v, int | float | str | bool):
+            params[k.name] = v
+
+    import json
+    return json.dumps(params)
+
+
+class CrossValidator(SparkCrossValidator):
 
     def _fit(self, dataset: DataFrame) -> Any:
-        import pyspark.sql.connect.proto as pb2
-        from pyspark.ml.connect.serialize import serialize_ml_params, deserialize
-
+        estimator = self.getEstimator()
+        evaluator = self.getEvaluator()
         cv_rel = rapids_pb.CrossValidatorRelation(
             estimator=rapids_pb.MlOperator(
-                name="LogisticRegression",
-                uid=self.uid,
+                name=type(estimator).__name__,
+                uid=estimator.uid,
                 type=rapids_pb.MlOperator.OperatorType.OPERATOR_TYPE_ESTIMATOR,
+                params=extractParams(estimator),
             ),
             evaluator=rapids_pb.MlOperator(
-                name="MultiClassEvaluator",
-                uid=self.uid,
+                name=type(evaluator).__name__,
+                uid=evaluator.uid,
                 type=rapids_pb.MlOperator.OperatorType.OPERATOR_TYPE_EVALUATOR,
+                params=extractParams(evaluator),
             ),
-            dataset = dataset._plan.to_proto(dataset.sparkSession.client).SerializeToString()
+            dataset=dataset._plan.to_proto(dataset.sparkSession.client).SerializeToString(),
+            params=extractParams(self),
         )
         from pyspark.sql.connect.dataframe import DataFrame as ConnectDataFrame
         df = ConnectDataFrame(CrossValidatorPlan(cv_relation=cv_rel), dataset.sparkSession)

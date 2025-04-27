@@ -40,11 +40,16 @@ class CrossValidatorRelation(google.protobuf.message.Message):
 
     ESTIMATOR_FIELD_NUMBER: builtins.int
     EVALUATOR_FIELD_NUMBER: builtins.int
+    PARAMS_FIELD_NUMBER: builtins.int
     DATASET_FIELD_NUMBER: builtins.int
     @property
-    def estimator(self) -> global___MlOperator: ...
+    def estimator(self) -> global___MlOperator:
+        """(Required) the estimator info"""
     @property
-    def evaluator(self) -> global___MlOperator: ...
+    def evaluator(self) -> global___MlOperator:
+        """(Required) the evaluator info"""
+    params: builtins.str
+    """parameters of CrossValidator"""
     dataset: builtins.bytes
     """Can't use Relation directly due to shading issue in spark connect"""
     def __init__(
@@ -52,11 +57,15 @@ class CrossValidatorRelation(google.protobuf.message.Message):
         *,
         estimator: global___MlOperator | None = ...,
         evaluator: global___MlOperator | None = ...,
+        params: builtins.str | None = ...,
         dataset: builtins.bytes | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing_extensions.Literal["_dataset", b"_dataset", "dataset", b"dataset", "estimator", b"estimator", "evaluator", b"evaluator"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal["_dataset", b"_dataset", "dataset", b"dataset", "estimator", b"estimator", "evaluator", b"evaluator"]) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["_dataset", b"_dataset", "_params", b"_params", "dataset", b"dataset", "estimator", b"estimator", "evaluator", b"evaluator", "params", b"params"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["_dataset", b"_dataset", "_params", b"_params", "dataset", b"dataset", "estimator", b"estimator", "evaluator", b"evaluator", "params", b"params"]) -> None: ...
+    @typing.overload
     def WhichOneof(self, oneof_group: typing_extensions.Literal["_dataset", b"_dataset"]) -> typing_extensions.Literal["dataset"] | None: ...
+    @typing.overload
+    def WhichOneof(self, oneof_group: typing_extensions.Literal["_params", b"_params"]) -> typing_extensions.Literal["params"] | None: ...
 
 global___CrossValidatorRelation = CrossValidatorRelation
 
@@ -95,19 +104,25 @@ class MlOperator(google.protobuf.message.Message):
     NAME_FIELD_NUMBER: builtins.int
     UID_FIELD_NUMBER: builtins.int
     TYPE_FIELD_NUMBER: builtins.int
+    PARAMS_FIELD_NUMBER: builtins.int
     name: builtins.str
     """(Required) The qualified name of the ML operator."""
     uid: builtins.str
     """(Required) Unique id of the ML operator"""
     type: global___MlOperator.OperatorType.ValueType
     """(Required) Represents what the ML operator is"""
+    params: builtins.str
+    """(Optional) parameters of the operator which is a json string"""
     def __init__(
         self,
         *,
         name: builtins.str = ...,
         uid: builtins.str = ...,
         type: global___MlOperator.OperatorType.ValueType = ...,
+        params: builtins.str | None = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing_extensions.Literal["name", b"name", "type", b"type", "uid", b"uid"]) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["_params", b"_params", "params", b"params"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["_params", b"_params", "name", b"name", "params", b"params", "type", b"type", "uid", b"uid"]) -> None: ...
+    def WhichOneof(self, oneof_group: typing_extensions.Literal["_params", b"_params"]) -> typing_extensions.Literal["params"] | None: ...
 
 global___MlOperator = MlOperator
