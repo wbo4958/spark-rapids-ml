@@ -27,13 +27,34 @@ import org.apache.spark.api.python.SimplePythonFunction
 import org.apache.spark.ml.Model
 import org.apache.spark.ml.param.{ParamMap, ParamPair, Params}
 import org.apache.spark.ml.tuning.CrossValidatorModel
+import org.apache.spark.ml.util.DefaultParamsReader
+import org.apache.spark.ml.util.DefaultParamsReader.Metadata
 import org.apache.spark.util.ArrayImplicits.SparkArrayOps
 import org.apache.spark.util.Utils
-import org.json4s.JString
+import org.json4s.{DefaultFormats, JObject, JString}
+import org.json4s.JsonAST.JValue
 import org.json4s.JsonDSL._
 import org.json4s.jackson.JsonMethods.{compact, parse, render}
 
 object RapidsUtils {
+
+  def setParams(
+                 instance: Params,
+                 parameters: String): Unit = {
+    implicit val format = DefaultFormats
+    val paramsToSet = parse(parameters)
+    paramsToSet match {
+      case JObject(pairs) =>
+        pairs.foreach { case (paramName, jsonValue) =>
+          val param = instance.getParam(paramName)
+          val value = param.jsonDecode(compact(render(jsonValue)))
+          instance.set(param, value)
+        }
+      case _ =>
+        throw new IllegalArgumentException(
+          s"Cannot recognize JSON metadata: ${parameters}.")
+    }
+  }
 
   def createCrossValidatorModel(uid: String, model: Model[_]): CrossValidatorModel = {
     new CrossValidatorModel(uid, model, Array.empty[Double])
@@ -55,10 +76,10 @@ object RapidsUtils {
     compact(render(
       estimatorParamMaps.map { paramMap =>
         paramMap.toSeq.map { case ParamPair(p, v) =>
-              Map("parent" -> JString(p.parent),
-                "name" -> JString(p.name),
-                "value" -> parse(p.jsonEncode(v)))
-          }
+          Map("parent" -> JString(p.parent),
+            "name" -> JString(p.name),
+            "value" -> parse(p.jsonEncode(v)))
+        }
       }.toImmutableArraySeq
     ))
   }

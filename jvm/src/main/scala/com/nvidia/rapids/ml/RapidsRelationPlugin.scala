@@ -22,8 +22,15 @@ import org.apache.spark.sql.Row
 import org.apache.spark.sql.connect.planner.SparkConnectPlanner
 import org.apache.spark.sql.connect.plugin.RelationPlugin
 import org.apache.spark.connect.{proto => sparkProto}
+import org.apache.spark.ml.Estimator
+import org.apache.spark.ml.evaluation.{Evaluator, MulticlassClassificationEvaluator}
+import org.apache.spark.ml.rapids.RapidsUtils
 import org.apache.spark.sql.rapids.Utils
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
+import org.json4s._
+import org.json4s.{DefaultFormats, JObject}
+import org.json4s.JsonDSL._
+import org.json4s.jackson.JsonMethods._
 
 import java.util.Optional
 import scala.jdk.CollectionConverters.SeqHasAsJava
@@ -44,18 +51,25 @@ class RapidsRelationPlugin extends RelationPlugin {
       val dataset = Utils.ofRows(sparkSession,
         sparkConnectPlanner.transformRelation(dataLogicalPlan.getRoot))
 
-      val cvParams = cvProto.getParams
-
       val estProto = cvProto.getEstimator
+      println(s"------------------------------- name: ${estProto.getName}")
+      var estimator: Option[Estimator[_]] = None
       if (estProto.getName == "LogisticRegression") {
-        val estimator = new RapidsLogisticRegression(uid = estProto.getUid)
-        val estParmas = estProto.getParams
-
+        estimator = Some(new RapidsLogisticRegression(uid = estProto.getUid))
+        val estParams = estProto.getParams
+        RapidsUtils.setParams(estimator.get, estParams)
       }
-      val evaluator = cvProto.getEvaluator
+      val evalProto = cvProto.getEvaluator
+      var evaluator: Option[Evaluator] = None
+      if (evalProto.getName == "MulticlassClassificationEvaluator") {
+        evaluator = Some(new MulticlassClassificationEvaluator(uid = evalProto.getUid))
+        val evalParams = evalProto.getParams
+        RapidsUtils.setParams(evaluator.get, evalParams)
+      }
 
-
-
+      val cv = new RapidsCrossValidator(uid = "xx")
+      RapidsUtils.setParams(cv, cvProto.getParams)
+      cv.setEstimator(estimator.get).setEvaluator(evaluator.get)
 
       dataset.show()
       val resultDf = sparkSession.createDataFrame(
