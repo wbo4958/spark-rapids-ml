@@ -17,11 +17,11 @@
 package com.nvidia.rapids.ml
 
 import org.apache.commons.logging.LogFactory
+import org.apache.spark.connect.proto
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.connect.planner.SparkConnectPlanner
 import org.apache.spark.sql.connect.plugin.RelationPlugin
-import org.apache.spark.connect.{proto => sparkProto}
 import org.apache.spark.sql.rapids.Utils
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
 
@@ -40,7 +40,7 @@ class RapidsRelationPlugin extends RelationPlugin {
     // CrossValidation
     if (rel.is(classOf[proto.CrossValidatorRelation])) {
       val cvProto = rel.unpack(classOf[proto.CrossValidatorRelation])
-      val dataLogicalPlan = sparkProto.Plan.parseFrom(cvProto.getDataset.toByteArray)
+      val dataLogicalPlan = proto.Plan.parseFrom(cvProto.getDataset.toByteArray)
       val dataset = Utils.ofRows(sparkSession,
         sparkConnectPlanner.transformRelation(dataLogicalPlan.getRoot))
 

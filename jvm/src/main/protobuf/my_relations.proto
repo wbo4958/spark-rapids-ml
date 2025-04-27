@@ -1,0 +1,23 @@
+syntax = 'proto3';
+import "spark/connect/ml_common.proto";
+
+// Must set the package into spark.connect if importing spark/connect/relations.proto
+ package spark.connect;
+//package com.nvidia.rapids.ml.proto;
+
+option java_multiple_files = true;
+option java_package = "org.apache.spark.connect.proto";
+option java_generate_equals_and_hash = true;
+
+message TuningRelation {
+  oneof relation_type {
+    CrossValidatorRelation cv = 1;
+  }
+}
+
+message CrossValidatorRelation {
+  MlOperator estimator = 1;
+  MlOperator evaluator = 2;
+  // Can't use Relation directly due to shading issue in spark connect
+  optional bytes dataset = 3;
+}
