@@ -41,6 +41,7 @@ class CrossValidator(SparkCrossValidator):
         estimator = self.getEstimator()
         evaluator = self.getEvaluator()
         cv_rel = rapids_pb.CrossValidatorRelation(
+            uid=self.uid,
             estimator=rapids_pb.MlOperator(
                 name=type(estimator).__name__,
                 uid=estimator.uid,

@@ -15,6 +15,7 @@
  */
 package com.nvidia.rapids.ml
 
+import org.apache.spark.ml.rapids.RapidsUtils
 import org.apache.spark.sql.connect.plugin.MLBackendPlugin
 
 import java.util.Optional
@@ -26,7 +27,7 @@ import java.util.Optional
 class Plugin extends MLBackendPlugin {
 
   override def transform(mlName: String): Optional[String] = {
-    Utils.transform(mlName) match {
+    RapidsUtils.transform(mlName) match {
       case Some(v) => Optional.of(v)
       case None => Optional.empty()
     }

@@ -38,10 +38,13 @@ global___TuningRelation = TuningRelation
 class CrossValidatorRelation(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
+    UID_FIELD_NUMBER: builtins.int
     ESTIMATOR_FIELD_NUMBER: builtins.int
     EVALUATOR_FIELD_NUMBER: builtins.int
     PARAMS_FIELD_NUMBER: builtins.int
     DATASET_FIELD_NUMBER: builtins.int
+    uid: builtins.str
+    """(Required) Unique id of the ML operator"""
     @property
     def estimator(self) -> global___MlOperator:
         """(Required) the estimator info"""
@@ -55,13 +58,14 @@ class CrossValidatorRelation(google.protobuf.message.Message):
     def __init__(
         self,
         *,
+        uid: builtins.str = ...,
         estimator: global___MlOperator | None = ...,
         evaluator: global___MlOperator | None = ...,
         params: builtins.str | None = ...,
         dataset: builtins.bytes | None = ...,
     ) -> None: ...
     def HasField(self, field_name: typing_extensions.Literal["_dataset", b"_dataset", "_params", b"_params", "dataset", b"dataset", "estimator", b"estimator", "evaluator", b"evaluator", "params", b"params"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal["_dataset", b"_dataset", "_params", b"_params", "dataset", b"dataset", "estimator", b"estimator", "evaluator", b"evaluator", "params", b"params"]) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["_dataset", b"_dataset", "_params", b"_params", "dataset", b"dataset", "estimator", b"estimator", "evaluator", b"evaluator", "params", b"params", "uid", b"uid"]) -> None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing_extensions.Literal["_dataset", b"_dataset"]) -> typing_extensions.Literal["dataset"] | None: ...
     @typing.overload

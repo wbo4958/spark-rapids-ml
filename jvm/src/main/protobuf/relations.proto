@@ -15,14 +15,16 @@ message TuningRelation {
 }
 
 message CrossValidatorRelation {
+  // (Required) Unique id of the ML operator
+  string uid = 1;
   // (Required) the estimator info
-  MlOperator estimator = 1;
+  MlOperator estimator = 2;
   // (Required) the evaluator info
-  MlOperator evaluator = 2;
+  MlOperator evaluator = 3;
   // parameters of CrossValidator
-  optional string params = 3;
+  optional string params = 4;
   // Can't use Relation directly due to shading issue in spark connect
-  optional bytes dataset = 4;
+  optional bytes dataset = 5;
 }
 
 // MLOperator represents the ML operators like (Estimator, Transformer or Evaluator)

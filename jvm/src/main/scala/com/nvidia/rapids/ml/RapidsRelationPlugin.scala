@@ -16,23 +16,14 @@
 
 package com.nvidia.rapids.ml
 
-import com.nvidia.rapids.ml
 import org.apache.commons.logging.LogFactory
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.connect.planner.SparkConnectPlanner
 import org.apache.spark.sql.connect.plugin.RelationPlugin
 import org.apache.spark.connect.{proto => sparkProto}
-import org.apache.spark.ml.Estimator
-import org.apache.spark.ml.evaluation.{Evaluator, MulticlassClassificationEvaluator}
-import org.apache.spark.ml.rapids.RapidsUtils
-import org.apache.spark.ml.tuning.ParamGridBuilder
 import org.apache.spark.sql.rapids.Utils
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
-import org.json4s._
-import org.json4s.{DefaultFormats, JObject}
-import org.json4s.JsonDSL._
-import org.json4s.jackson.JsonMethods._
 
 import java.util.Optional
 import scala.jdk.CollectionConverters.SeqHasAsJava
@@ -52,36 +43,9 @@ class RapidsRelationPlugin extends RelationPlugin {
       val dataLogicalPlan = sparkProto.Plan.parseFrom(cvProto.getDataset.toByteArray)
       val dataset = Utils.ofRows(sparkSession,
         sparkConnectPlanner.transformRelation(dataLogicalPlan.getRoot))
-
-      val estProto = cvProto.getEstimator
-      println(s"------------------------------- name: ${estProto.getName}")
-      var estimator: Option[Estimator[_]] = None
-      if (estProto.getName == "LogisticRegression") {
-        estimator = Some(new RapidsLogisticRegression(uid = estProto.getUid))
-        val estParams = estProto.getParams
-        RapidsUtils.setParams(estimator.get, estParams)
-
-      }
-      val evalProto = cvProto.getEvaluator
-      var evaluator: Option[Evaluator] = None
-      if (evalProto.getName == "MulticlassClassificationEvaluator") {
-        evaluator = Some(new MulticlassClassificationEvaluator(uid = evalProto.getUid))
-        val evalParams = evalProto.getParams
-        RapidsUtils.setParams(evaluator.get, evalParams)
-      }
-
-      val cv = new RapidsCrossValidator(uid = "xx")
-      RapidsUtils.setParams(cv, cvProto.getParams)
-
-      val paramGrid = new ParamGridBuilder()
-        .addGrid(estimator.get.asInstanceOf[ml.RapidsLogisticRegression].maxIter, Array(3, 11))
-        .build()
-      cv.setEstimator(estimator.get).setEvaluator(evaluator.get).setEstimatorParamMaps(paramGrid)
-
-      val cvModel = cv.fit(dataset)
-
+      val modelId = RapidsCrossValidator.fit(cvProto, dataset)
       val resultDf = sparkSession.createDataFrame(
-        List(Row("123456_model_id")).asJava,
+        List(Row(s"$modelId")).asJava,
         StructType(Seq(StructField("model_id", StringType))))
       Optional.of(Utils.getLogicalPlan(resultDf))
     } else {

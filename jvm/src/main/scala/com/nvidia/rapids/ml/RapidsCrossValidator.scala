@@ -16,8 +16,11 @@
 
 package com.nvidia.rapids.ml
 
+import com.nvidia.rapids.ml
+import org.apache.spark.ml.Estimator
+import org.apache.spark.ml.evaluation.{Evaluator, MulticlassClassificationEvaluator}
 import org.apache.spark.ml.rapids.{Fit, PythonEstimatorRunner, RapidsUtils, TrainedModel}
-import org.apache.spark.ml.tuning.{CrossValidator, CrossValidatorModel}
+import org.apache.spark.ml.tuning.{CrossValidator, CrossValidatorModel, ParamGridBuilder}
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.sql.Dataset
 
@@ -28,13 +31,13 @@ class RapidsCrossValidator(override val uid: String) extends CrossValidator with
   override def fit(dataset: Dataset[_]): CrossValidatorModel = {
     val trainedModel = trainOnPython(dataset)
 
-    val bestModel = Utils.createModel(getName(getEstimator.getClass.getName),
+    val bestModel = RapidsUtils.createModel(getName(getEstimator.getClass.getName),
       getEstimator.uid, getEstimator, trainedModel)
     copyValues(RapidsUtils.createCrossValidatorModel(this.uid, bestModel))
   }
 
   private def getName(name: String): String = {
-    Utils.transform(name).getOrElse(name)
+    RapidsUtils.transform(name).getOrElse(name)
   }
 
   /**
@@ -72,5 +75,38 @@ class RapidsCrossValidator(override val uid: String) extends CrossValidator with
 
     logger.info(s"Finished $name training.")
     trainedModel
+  }
+}
+
+object RapidsCrossValidator {
+
+  def fit(cvProto: proto.CrossValidatorRelation, dataset: Dataset[_]): String = {
+
+    val estProto = cvProto.getEstimator
+    var estimator: Option[Estimator[_]] = None
+    if (estProto.getName == "LogisticRegression") {
+      estimator = Some(new RapidsLogisticRegression(uid = estProto.getUid))
+      val estParams = estProto.getParams
+      RapidsUtils.setParams(estimator.get, estParams)
+
+    }
+    val evalProto = cvProto.getEvaluator
+    var evaluator: Option[Evaluator] = None
+    if (evalProto.getName == "MulticlassClassificationEvaluator") {
+      evaluator = Some(new MulticlassClassificationEvaluator(uid = evalProto.getUid))
+      val evalParams = evalProto.getParams
+      RapidsUtils.setParams(evaluator.get, evalParams)
+    }
+
+    val cv = new RapidsCrossValidator(uid = cvProto.getUid)
+    RapidsUtils.setParams(cv, cvProto.getParams)
+
+    val paramGrid = new ParamGridBuilder()
+      .addGrid(estimator.get.asInstanceOf[ml.RapidsLogisticRegression].maxIter, Array(3, 11))
+      .build()
+    cv.setEstimator(estimator.get).setEvaluator(evaluator.get).setEstimatorParamMaps(paramGrid)
+
+    val cvModel = cv.fit(dataset)
+    "fited_model"
   }
 }

@@ -18,7 +18,7 @@ package com.nvidia.rapids.ml
 
 import org.apache.spark.ml.util.{DefaultParamsReadable, DefaultParamsWritable, Identifiable}
 import org.apache.spark.ml.classification.LogisticRegression
-import org.apache.spark.ml.rapids.RapidsLogisticRegressionModel
+import org.apache.spark.ml.rapids.{RapidsLogisticRegressionModel, RapidsUtils}
 import org.apache.spark.sql.Dataset
 
 /**
@@ -36,7 +36,7 @@ class RapidsLogisticRegression(override val uid: String) extends LogisticRegress
 
   override def train(dataset: Dataset[_]): RapidsLogisticRegressionModel = {
     val trainedModel = trainOnPython(dataset)
-    Utils.createModel(name, uid, this, trainedModel).asInstanceOf[RapidsLogisticRegressionModel]
+    RapidsUtils.createModel(name, uid, this, trainedModel).asInstanceOf[RapidsLogisticRegressionModel]
   }
 
   /**
