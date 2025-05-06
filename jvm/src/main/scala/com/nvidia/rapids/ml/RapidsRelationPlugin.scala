@@ -22,7 +22,7 @@ import org.apache.spark.sql.Row
 import org.apache.spark.sql.connect.planner.SparkConnectPlanner
 import org.apache.spark.sql.connect.plugin.RelationPlugin
 import org.apache.spark.connect.{proto => sparkProto}
-import org.apache.spark.sql.rapids.Utils
+import org.apache.spark.sql.connect.ml.rapids.RapidsConnectUtils
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
 
 import java.util.Optional
@@ -41,13 +41,14 @@ class RapidsRelationPlugin extends RelationPlugin {
     if (rel.is(classOf[proto.CrossValidatorRelation])) {
       val cvProto = rel.unpack(classOf[proto.CrossValidatorRelation])
       val dataLogicalPlan = sparkProto.Plan.parseFrom(cvProto.getDataset.toByteArray)
-      val dataset = Utils.ofRows(sparkSession,
+      val dataset = RapidsConnectUtils.ofRows(sparkSession,
         sparkConnectPlanner.transformRelation(dataLogicalPlan.getRoot))
-      val modelId = RapidsCrossValidator.fit(cvProto, dataset)
+      val cvModel = RapidsCrossValidator.fit(cvProto, dataset)
+      val modelId = RapidsConnectUtils.cache(sparkConnectPlanner.sessionHolder, cvModel.bestModel)
       val resultDf = sparkSession.createDataFrame(
         List(Row(s"$modelId")).asJava,
-        StructType(Seq(StructField("model_id", StringType))))
-      Optional.of(Utils.getLogicalPlan(resultDf))
+        StructType(Seq(StructField("best_model_id", StringType))))
+      Optional.of(RapidsConnectUtils.getLogicalPlan(resultDf))
     } else {
       Optional.empty()
     }

@@ -1,14 +1,10 @@
 import json
-from typing import Union, Any
 
-from pyspark.ml import Estimator
 from pyspark.ml.param import Params
-from pyspark.ml.param.shared import HasParallelism, HasCollectSubModels
-from pyspark.ml.tuning import _CrossValidatorParams
 from pyspark.sql import DataFrame
 from pyspark.sql.connect import proto as proto
 from pyspark.sql.connect.plan import LogicalPlan
-from pyspark.ml.tuning import CrossValidator as SparkCrossValidator
+from pyspark.ml.tuning import CrossValidator as SparkCrossValidator, CrossValidatorModel
 
 import spark_rapids_ml.proto as rapids_pb
 
@@ -38,7 +34,7 @@ def extractParams(instance: "Params") -> str:
 
 class CrossValidator(SparkCrossValidator):
 
-    def _fit(self, dataset: DataFrame) -> Any:
+    def _fit(self, dataset: DataFrame) -> "CrossValidatorModel":
         estimator = self.getEstimator()
         evaluator = self.getEvaluator()
         est_param_list = []
@@ -50,10 +46,11 @@ class CrossValidator(SparkCrossValidator):
             est_param_list.append(est_param_items)
         est_param_map_json = json.dumps(est_param_list)
 
+        estimator_name = type(estimator).__name__
         cv_rel = rapids_pb.CrossValidatorRelation(
             uid=self.uid,
             estimator=rapids_pb.MlOperator(
-                name=type(estimator).__name__,
+                name=estimator_name,
                 uid=estimator.uid,
                 type=rapids_pb.MlOperator.OperatorType.OPERATOR_TYPE_ESTIMATOR,
                 params=extractParams(estimator),
@@ -70,5 +67,13 @@ class CrossValidator(SparkCrossValidator):
         )
         from pyspark.sql.connect.dataframe import DataFrame as ConnectDataFrame
         df = ConnectDataFrame(CrossValidatorPlan(cv_relation=cv_rel), dataset.sparkSession)
-        x = df.collect()
-        print(f"------------------------- x is {x}")
+        row = df.collect()
+
+        best_model = None
+        model_id = row[0].best_model_id
+        # TODO support other estimators
+        if estimator_name == "LogisticRegression":
+            from pyspark.ml.classification import LogisticRegressionModel
+            best_model = LogisticRegressionModel(model_id)
+
+        return CrossValidatorModel(best_model)

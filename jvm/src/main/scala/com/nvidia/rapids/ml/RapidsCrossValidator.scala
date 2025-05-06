@@ -22,6 +22,7 @@ import org.apache.spark.ml.rapids.{Fit, PythonEstimatorRunner, RapidsUtils, Trai
 import org.apache.spark.ml.tuning.{CrossValidator, CrossValidatorModel}
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.sql.Dataset
+import org.apache.spark.sql.connect.ml.rapids.RapidsConnectUtils
 
 class RapidsCrossValidator(override val uid: String) extends CrossValidator with RapidsEstimator {
 
@@ -79,7 +80,7 @@ class RapidsCrossValidator(override val uid: String) extends CrossValidator with
 
 object RapidsCrossValidator {
 
-  def fit(cvProto: proto.CrossValidatorRelation, dataset: Dataset[_]): String = {
+  def fit(cvProto: proto.CrossValidatorRelation, dataset: Dataset[_]): CrossValidatorModel = {
 
     val estProto = cvProto.getEstimator
     var estimator: Option[Estimator[_]] = None
@@ -103,7 +104,6 @@ object RapidsCrossValidator {
     cv.setEstimator(estimator.get).setEvaluator(evaluator.get)
     val paramGrid = RapidsUtils.extractParamMap(cv, cvProto.getEstimatorParamMaps)
     cv.setEstimatorParamMaps(paramGrid)
-    val cvModel = cv.fit(dataset)
-    "fited_model"
+    cv.fit(dataset)
   }
 }
