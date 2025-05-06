@@ -25,9 +25,11 @@ import org.scalatest.BeforeAndAfterEach
 import org.scalatest.funsuite.AnyFunSuite
 import org.apache.spark.ml.linalg.Vectors
 import org.apache.spark.ml.rapids.{RapidsLogisticRegressionModel, RapidsUtils}
-import org.apache.spark.ml.tuning.ParamGridBuilder
+import org.apache.spark.ml.tuning.{CrossValidator, ParamGridBuilder}
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.functions.{col, rand, when}
+import org.json4s._
+import org.json4s.jackson.JsonMethods._
 
 import scala.util.Random
 

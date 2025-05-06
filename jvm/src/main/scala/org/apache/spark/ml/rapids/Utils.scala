@@ -19,15 +19,18 @@ package org.apache.spark.ml.rapids
 import java.security.SecureRandom
 import java.util.Base64
 import java.io.File
+
 import scala.collection.mutable.ArrayBuffer
 import scala.jdk.CollectionConverters._
 import scala.sys.process.Process
+
 import py4j.GatewayServer.GatewayServerBuilder
 import org.apache.spark.api.python.SimplePythonFunction
 import org.apache.spark.ml.Model
 import org.apache.spark.ml.classification.LogisticRegressionModel
 import org.apache.spark.ml.param.{ParamMap, ParamPair, Params}
-import org.apache.spark.ml.tuning.CrossValidatorModel
+import org.apache.spark.ml.tuning.{CrossValidator, CrossValidatorModel}
+import org.apache.spark.ml.util.MetaAlgorithmReadWrite
 import org.apache.spark.util.ArrayImplicits.SparkArrayOps
 import org.apache.spark.util.Utils
 import org.json4s.{DefaultFormats, JObject, JString}
@@ -46,7 +49,7 @@ object RapidsUtils {
     }
   }
 
-  // Just the user defined parameters
+  // Just copy the user defined parameters
   def copyParams[T <: Params, S <: Params](src: S, to: T): T = {
     src.extractParamMap().toSeq.foreach { p =>
       val name = p.param.name
@@ -65,6 +68,25 @@ object RapidsUtils {
     } else {
       throw new RuntimeException(s"$name Not supported")
     }
+  }
+
+  def extractParamMap(cv: CrossValidator, parameters: String): Array[ParamMap] = {
+    val evaluator = cv.getEvaluator
+    val estimator = cv.getEstimator
+    val uidToParams = Map(evaluator.uid -> evaluator) ++ MetaAlgorithmReadWrite.getUidMap(estimator)
+    val paraMap = parse(parameters)
+
+    implicit val format = DefaultFormats
+    paraMap.extract[Seq[Seq[Map[String, String]]]].map {
+        pMap =>
+          val paramPairs = pMap.map { pInfo: Map[String, String] =>
+            val est = uidToParams(pInfo("parent"))
+            val param = est.getParam(pInfo("name"))
+              val value = param.jsonDecode(pInfo("value"))
+              param -> value
+            }
+          ParamMap(paramPairs: _*)
+      }.toArray
   }
 
   def setParams(

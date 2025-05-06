@@ -1,3 +1,4 @@
+import json
 from typing import Union, Any
 
 from pyspark.ml import Estimator
@@ -40,6 +41,15 @@ class CrossValidator(SparkCrossValidator):
     def _fit(self, dataset: DataFrame) -> Any:
         estimator = self.getEstimator()
         evaluator = self.getEvaluator()
+        est_param_list = []
+        for param_group in self.getEstimatorParamMaps():
+            est_param_items = []
+            for p, v in param_group.items():
+                tmp_map = {"parent": p.parent, "name": p.name, "value": v}
+                est_param_items.append(tmp_map)
+            est_param_list.append(est_param_items)
+        est_param_map_json = json.dumps(est_param_list)
+
         cv_rel = rapids_pb.CrossValidatorRelation(
             uid=self.uid,
             estimator=rapids_pb.MlOperator(
@@ -48,6 +58,7 @@ class CrossValidator(SparkCrossValidator):
                 type=rapids_pb.MlOperator.OperatorType.OPERATOR_TYPE_ESTIMATOR,
                 params=extractParams(estimator),
             ),
+            estimator_param_maps=est_param_map_json,
             evaluator=rapids_pb.MlOperator(
                 name=type(evaluator).__name__,
                 uid=evaluator.uid,

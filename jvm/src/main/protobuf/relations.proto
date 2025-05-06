@@ -19,12 +19,14 @@ message CrossValidatorRelation {
   string uid = 1;
   // (Required) the estimator info
   MlOperator estimator = 2;
+  // (Required) the estimator parameter maps info
+  string estimator_param_maps = 3;
   // (Required) the evaluator info
-  MlOperator evaluator = 3;
+  MlOperator evaluator = 4;
   // parameters of CrossValidator
-  optional string params = 4;
+  optional string params = 5;
   // Can't use Relation directly due to shading issue in spark connect
-  optional bytes dataset = 5;
+  optional bytes dataset = 6;
 }
 
 // MLOperator represents the ML operators like (Estimator, Transformer or Evaluator)

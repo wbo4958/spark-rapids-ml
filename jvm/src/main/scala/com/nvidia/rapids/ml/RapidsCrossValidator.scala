@@ -16,11 +16,10 @@
 
 package com.nvidia.rapids.ml
 
-import com.nvidia.rapids.ml
 import org.apache.spark.ml.Estimator
 import org.apache.spark.ml.evaluation.{Evaluator, MulticlassClassificationEvaluator}
 import org.apache.spark.ml.rapids.{Fit, PythonEstimatorRunner, RapidsUtils, TrainedModel}
-import org.apache.spark.ml.tuning.{CrossValidator, CrossValidatorModel, ParamGridBuilder}
+import org.apache.spark.ml.tuning.{CrossValidator, CrossValidatorModel}
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.sql.Dataset
 
@@ -101,11 +100,9 @@ object RapidsCrossValidator {
     val cv = new RapidsCrossValidator(uid = cvProto.getUid)
     RapidsUtils.setParams(cv, cvProto.getParams)
 
-    val paramGrid = new ParamGridBuilder()
-      .addGrid(estimator.get.asInstanceOf[ml.RapidsLogisticRegression].maxIter, Array(3, 11))
-      .build()
-    cv.setEstimator(estimator.get).setEvaluator(evaluator.get).setEstimatorParamMaps(paramGrid)
-
+    cv.setEstimator(estimator.get).setEvaluator(evaluator.get)
+    val paramGrid = RapidsUtils.extractParamMap(cv, cvProto.getEstimatorParamMaps)
+    cv.setEstimatorParamMaps(paramGrid)
     val cvModel = cv.fit(dataset)
     "fited_model"
   }

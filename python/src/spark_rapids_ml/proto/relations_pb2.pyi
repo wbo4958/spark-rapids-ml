@@ -40,6 +40,7 @@ class CrossValidatorRelation(google.protobuf.message.Message):
 
     UID_FIELD_NUMBER: builtins.int
     ESTIMATOR_FIELD_NUMBER: builtins.int
+    ESTIMATOR_PARAM_MAPS_FIELD_NUMBER: builtins.int
     EVALUATOR_FIELD_NUMBER: builtins.int
     PARAMS_FIELD_NUMBER: builtins.int
     DATASET_FIELD_NUMBER: builtins.int
@@ -48,6 +49,8 @@ class CrossValidatorRelation(google.protobuf.message.Message):
     @property
     def estimator(self) -> global___MlOperator:
         """(Required) the estimator info"""
+    estimator_param_maps: builtins.str
+    """(Required) the estimator parameter maps info"""
     @property
     def evaluator(self) -> global___MlOperator:
         """(Required) the evaluator info"""
@@ -60,12 +63,13 @@ class CrossValidatorRelation(google.protobuf.message.Message):
         *,
         uid: builtins.str = ...,
         estimator: global___MlOperator | None = ...,
+        estimator_param_maps: builtins.str = ...,
         evaluator: global___MlOperator | None = ...,
         params: builtins.str | None = ...,
         dataset: builtins.bytes | None = ...,
     ) -> None: ...
     def HasField(self, field_name: typing_extensions.Literal["_dataset", b"_dataset", "_params", b"_params", "dataset", b"dataset", "estimator", b"estimator", "evaluator", b"evaluator", "params", b"params"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal["_dataset", b"_dataset", "_params", b"_params", "dataset", b"dataset", "estimator", b"estimator", "evaluator", b"evaluator", "params", b"params", "uid", b"uid"]) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["_dataset", b"_dataset", "_params", b"_params", "dataset", b"dataset", "estimator", b"estimator", "estimator_param_maps", b"estimator_param_maps", "evaluator", b"evaluator", "params", b"params", "uid", b"uid"]) -> None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing_extensions.Literal["_dataset", b"_dataset"]) -> typing_extensions.Literal["dataset"] | None: ...
     @typing.overload
